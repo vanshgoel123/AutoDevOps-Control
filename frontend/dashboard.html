@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0e1a2b">
+    <title>AutoDevOps Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-orb bg-orb-a"></div>
+    <div class="bg-orb bg-orb-b"></div>
+    <main class="shell shell-dashboard">
+        <header class="dashboard-top panel">
+            <div>
+                <p class="kicker">Live Deployments</p>
+                <h1>Application Dashboard</h1>
+                <p class="subcopy">Review deployed apps, open live URLs, or terminate instances when you are done.</p>
+            </div>
+            <div class="actions">
+                <a class="button-link ghost" href="/">New Deploy</a>
+                <button onclick="load()">Refresh</button>
+            </div>
+        </header>
+
+        <p id="action_status" class="status-pill subtle">Ready</p>
+        <section id="apps" class="apps-grid"></section>
+    </main>
+
+    <script>
+    async function load() {
+        let res = await fetch("/apps");
+        let data = await res.json();
+        const actionStatus = document.getElementById("action_status");
+
+        actionStatus.innerText = "Updated " + new Date().toLocaleTimeString();
+
+        let html = "";
+
+        if (!data.apps || data.apps.length === 0) {
+            html = '<article class="panel app-card empty"><strong>No active deployments found.</strong><p>Start a new deploy from the home page.</p></article>';
+        } else {
+            data.apps.forEach(app => {
+                const instanceId = app[4];
+                const isDeleted = String(app[3] || "").toUpperCase() === "DELETED";
+                const canTerminate = instanceId && String(instanceId).startsWith("i-") && !isDeleted;
+                html += `
+                <article class="panel app-card">
+                    <div class="card-topline">
+                        <span class="chip small ${isDeleted ? 'muted' : 'accent'}">${app[3]}</span>
+                        <span class="app-id">${app[0]}</span>
+                    </div>
+                    <div class="repo-block">
+                        <p class="label">Repository</p>
+                        <p class="repo">${app[1]}</p>
+                    </div>
+                    <div class="link-stack">
+                        <p class="label">Live URL</p>
+                        <a class="app-link" href="${app[2]}" target="_blank" rel="noopener noreferrer">${app[2]}</a>
+                    </div>
+                    <div class="card-actions">
+                        <button class="danger" onclick="del('${instanceId || ''}')" ${canTerminate ? '' : 'disabled'}>
+                            ${canTerminate ? 'Terminate Instance' : 'Already Terminated'}
+                        </button>
+                    </div>
+                </article>
+                `;
+            });
+        }
+
+        document.getElementById("apps").innerHTML = html;
+    }
+
+    async function del(id) {
+        const statusEl = document.getElementById("action_status");
+
+        if (!id || !id.startsWith("i-")) {
+            statusEl.innerText = "Invalid instance id, cannot terminate.";
+            return;
+        }
+
+        const awsKey = localStorage.getItem("aws_key") || "";
+        const awsSecret = localStorage.getItem("aws_secret") || "";
+
+        if (!awsKey || !awsSecret) {
+            statusEl.innerText = "AWS credentials not found. Please deploy once from home page in this browser, then retry terminate.";
+            return;
+        }
+
+        statusEl.innerText = `Terminating ${id}...`;
+
+        try {
+            const res = await fetch("/delete/" + id, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ aws_key: awsKey, aws_secret: awsSecret })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                statusEl.innerText = data.detail || "Terminate failed";
+                return;
+            }
+
+            statusEl.innerText = data.message || `Instance ${id} deletion initiated.`;
+            await load();
+        } catch (e) {
+            statusEl.innerText = "Network error while terminating instance.";
+        }
+    }
+
+    load();
+    </script>
+</body>
+</html>

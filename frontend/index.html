@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="theme-color" content="#0e1a2b">
+	<title>AutoDevOps Control</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	<div class="bg-grid"></div>
+	<div class="bg-orb bg-orb-a"></div>
+	<div class="bg-orb bg-orb-b"></div>
+	<main class="shell shell-home">
+		<section class="hero panel">
+			<div class="hero-copy">
+				<p class="kicker">Build. Ship. Monitor.</p>
+				<h1>AutoDevOps Control</h1>
+				<p class="subcopy">Paste your GitHub repo, provide the Dockerfiles, and deploy to EC2 with live status updates.</p>
+			</div>
+			<div class="hero-points">
+				<div class="point">
+					<span>1</span>
+					<div>
+						<strong>Connect</strong>
+						<p>Enter a public GitHub repository URL.</p>
+					</div>
+				</div>
+				<div class="point">
+					<span>2</span>
+					<div>
+						<strong>Paste Dockerfiles</strong>
+						<p>Add the backend and/or frontend Dockerfile exactly as used in your repo.</p>
+					</div>
+				</div>
+				<div class="point">
+					<span>3</span>
+					<div>
+						<strong>Deploy</strong>
+						<p>Track progress, then open the live URLs from the result panel.</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="panel deploy-card">
+			<div class="panel-header">
+				<div>
+					<p class="eyebrow">Deployment form</p>
+					<h2>Launch a new app</h2>
+				</div>
+				<a class="button-link ghost" href="/dashboard">Open Dashboard</a>
+			</div>
+
+			<div class="field-group">
+				<label for="repo">Repository URL</label>
+				<input id="repo" type="url" placeholder="https://github.com/user/repo" autocomplete="off" spellcheck="false">
+				<p class="hint">Only public GitHub repositories are supported.</p>
+			</div>
+
+			<div class="credential-grid">
+				<div class="field-group">
+					<label for="aws_key">AWS Access Key</label>
+					<input id="aws_key" placeholder="AKIA..." autocomplete="off" spellcheck="false">
+				</div>
+				<div class="field-group">
+					<label for="aws_secret">AWS Secret Key</label>
+					<input id="aws_secret" type="password" placeholder="••••••••••••••••" autocomplete="off" spellcheck="false">
+				</div>
+			</div>
+
+			<div class="section-title">
+				<div>
+					<h3>Backend</h3>
+					<p>Add this only if your repo has a backend service.</p>
+				</div>
+				<span class="chip">Port required</span>
+			</div>
+			<div class="field-group">
+				<label for="backend_port">Backend Port</label>
+				<input id="backend_port" inputmode="numeric" placeholder="8000">
+			</div>
+			<div class="field-group">
+				<label for="backend_dockerfile">Backend Dockerfile</label>
+				<textarea id="backend_dockerfile" placeholder="Paste the backend Dockerfile here"></textarea>
+			</div>
+
+			<div class="section-title">
+				<div>
+					<h3>Frontend</h3>
+					<p>Frontend always runs on port 80.</p>
+				</div>
+				<span class="chip accent">Auto port 80</span>
+			</div>
+			<div class="field-group">
+				<label for="frontend_port">Frontend Port</label>
+				<input id="frontend_port" placeholder="80" disabled>
+			</div>
+			<div class="field-group">
+				<label for="frontend_dockerfile">Frontend Dockerfile</label>
+				<textarea id="frontend_dockerfile" placeholder="Paste the frontend Dockerfile here"></textarea>
+			</div>
+
+			<div class="helper-box">
+				<p class="helper-title">Quick rules</p>
+				<ul>
+					<li>Provide at least one Dockerfile.</li>
+					<li>Backend port is mandatory if backend Dockerfile is used.</li>
+					<li>Frontend port is fixed to 80.</li>
+				</ul>
+			</div>
+
+			<div class="actions actions-main">
+				<button id="deploy_btn" onclick="deploy()">Deploy App</button>
+				<button type="button" class="button-link ghost" onclick="fillExample()">Load example</button>
+			</div>
+
+			<p id="status" class="status-pill">Ready when you are</p>
+			<div id="result" class="result"></div>
+		</section>
+	</main>
+
+	<section class="shell guide-shell">
+		<div class="panel guide-card">
+			<p class="eyebrow">Need a format?</p>
+			<h2>Paste-ready deployment checklist</h2>
+			<div class="guide-grid">
+				<div>
+					<strong>Before deploy</strong>
+					<p>Make sure your repo is public, Dockerfile is committed, and AWS credentials can launch EC2.</p>
+				</div>
+				<div>
+					<strong>During deploy</strong>
+					<p>The status card will show EC2 creation, cloning, setup, and final URLs.</p>
+				</div>
+				<div>
+					<strong>After deploy</strong>
+					<p>Use the dashboard to review running apps and terminate old instances when done.</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<script src="/static/script.js"></script>
+</body>
+</html>
