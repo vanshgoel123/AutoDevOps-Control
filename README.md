@@ -1,4 +1,4 @@
-# Phase 7 - Everything From User
+# AutoDevOps Control
 
 This phase lets you deploy a Dockerized GitHub repository to EC2 from a FastAPI dashboard.
 
@@ -24,8 +24,8 @@ This phase lets you deploy a Dockerized GitHub repository to EC2 from a FastAPI 
 
 4. Open the app:
 
-   - Home: `http://localhost:8000`
-   - Dashboard: `http://localhost:8000/dashboard`
+   - Home: `https://deploy.13-207-132-171.sslip.io:8000`
+   - Dashboard: `https://deploy.13-207-132-171.sslip.io:8000/dashboard`
 
 ## Frontend usage
 
