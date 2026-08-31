@@ -2,7 +2,7 @@
 
 This phase lets you deploy a Dockerized GitHub repository to EC2 from a FastAPI dashboard.
 
-🚀 **Live Demo:** https://tabs-conditioning-foundation-atlas.trycloudflare.com/
+🚀 **Live Demo:** https://autodevops.vanshgoel.tech/
 
 ## What it does
 
