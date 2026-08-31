@@ -1,146 +1,313 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta name="theme-color" content="#0e1a2b">
-	<title>AutoDevOps Control</title>
-	<link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d0f">
+  <meta name="description" content="Deploy any GitHub repo to AWS EC2 in minutes. Paste your Dockerfiles, hit deploy.">
+  <title>AutoDevOps — Ship Without Friction</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
 </head>
 <body>
-	<div class="bg-grid"></div>
-	<div class="bg-orb bg-orb-a"></div>
-	<div class="bg-orb bg-orb-b"></div>
-	<main class="shell shell-home">
-		<section class="hero panel">
-			<div class="hero-copy">
-				<p class="kicker">Build. Ship. Monitor.</p>
-				<h1>AutoDevOps Control</h1>
-				<p class="subcopy">Paste your GitHub repo, provide the Dockerfiles, and deploy to EC2 with live status updates.</p>
-			</div>
-			<div class="hero-points">
-				<div class="point">
-					<span>1</span>
-					<div>
-						<strong>Connect</strong>
-						<p>Enter a public GitHub repository URL.</p>
-					</div>
-				</div>
-				<div class="point">
-					<span>2</span>
-					<div>
-						<strong>Paste Dockerfiles</strong>
-						<p>Add the backend and/or frontend Dockerfile exactly as used in your repo.</p>
-					</div>
-				</div>
-				<div class="point">
-					<span>3</span>
-					<div>
-						<strong>Deploy</strong>
-						<p>Track progress, then open the live URLs from the result panel.</p>
-					</div>
-				</div>
-			</div>
-		</section>
+  <div class="glow-blob glow-blob-1"></div>
+  <div class="glow-blob glow-blob-2"></div>
 
-		<section class="panel deploy-card">
-			<div class="panel-header">
-				<div>
-					<p class="eyebrow">Deployment form</p>
-					<h2>Launch a new app</h2>
-				</div>
-				<a class="button-link ghost" href="/dashboard">Open Dashboard</a>
-			</div>
+  <div class="page-wrapper">
 
-			<div class="field-group">
-				<label for="repo">Repository URL</label>
-				<input id="repo" type="url" placeholder="https://github.com/user/repo" autocomplete="off" spellcheck="false">
-				<p class="hint">Only public GitHub repositories are supported.</p>
-			</div>
+    <!-- ── Nav ──────────────────────────────────────────────────── -->
+    <nav class="nav">
+      <a class="nav-logo" href="/">
+        <div class="nav-logo-icon">⚡</div>
+        <span class="nav-logo-text">AutoDevOps</span>
+      </a>
+      <div class="nav-actions">
+        <a class="btn btn-ghost btn-sm" href="/dashboard">Dashboard →</a>
+      </div>
+    </nav>
 
-			<div class="credential-grid">
-				<div class="field-group">
-					<label for="aws_key">AWS Access Key</label>
-					<input id="aws_key" placeholder="AKIA..." autocomplete="off" spellcheck="false">
-				</div>
-				<div class="field-group">
-					<label for="aws_secret">AWS Secret Key</label>
-					<input id="aws_secret" type="password" placeholder="••••••••••••••••" autocomplete="off" spellcheck="false">
-				</div>
-			</div>
+    <!-- ══════════════════════════════════════════════════════════
+         SECTION 1 — Hero (full-width, centered, tall)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="lp-hero">
+      <div class="lp-hero-badge">
+        <span class="hero-badge-dot"></span>
+        Deploy to AWS EC2
+      </div>
+      <h1 class="lp-hero-h1">
+        Ship Without<br>
+        <span class="gradient-text">Friction</span>
+      </h1>
+      <p class="lp-hero-sub">
+        Paste a GitHub repo URL, provide your Dockerfiles, and AutoDevOps<br class="hide-mobile">
+        provisions EC2, clones your code, builds containers, and hands you live URLs.
+      </p>
 
-			<div class="section-title">
-				<div>
-					<h3>Backend</h3>
-					<p>Add this only if your repo has a backend service.</p>
-				</div>
-				<span class="chip">Port required</span>
-			</div>
-			<div class="field-group">
-				<label for="backend_port">Backend Port</label>
-				<input id="backend_port" inputmode="numeric" placeholder="8000">
-			</div>
-			<div class="field-group">
-				<label for="backend_dockerfile">Backend Dockerfile</label>
-				<textarea id="backend_dockerfile" placeholder="Paste the backend Dockerfile here"></textarea>
-			</div>
+      <!-- Stats row -->
+      <div class="lp-stats">
+        <div class="lp-stat">
+          <div class="lp-stat-val">~3 min</div>
+          <div class="lp-stat-lbl">Avg deploy time</div>
+        </div>
+        <div class="lp-stat-sep"></div>
+        <div class="lp-stat">
+          <div class="lp-stat-val">EC2</div>
+          <div class="lp-stat-lbl">Your AWS infra</div>
+        </div>
+        <div class="lp-stat-sep"></div>
+        <div class="lp-stat">
+          <div class="lp-stat-val">Docker</div>
+          <div class="lp-stat-lbl">Container runtime</div>
+        </div>
+        <div class="lp-stat-sep"></div>
+        <div class="lp-stat">
+          <div class="lp-stat-val">Live</div>
+          <div class="lp-stat-lbl">Real-time status</div>
+        </div>
+      </div>
 
-			<div class="section-title">
-				<div>
-					<h3>Frontend</h3>
-					<p>Frontend always runs on port 80.</p>
-				</div>
-				<span class="chip accent">Auto port 80</span>
-			</div>
-			<div class="field-group">
-				<label for="frontend_port">Frontend Port</label>
-				<input id="frontend_port" placeholder="80" disabled>
-			</div>
-			<div class="field-group">
-				<label for="frontend_dockerfile">Frontend Dockerfile</label>
-				<textarea id="frontend_dockerfile" placeholder="Paste the frontend Dockerfile here"></textarea>
-			</div>
+      <a href="#deploy" class="btn btn-primary btn-lg lp-cta">
+        ⚡ Start Deploying
+      </a>
+    </section>
 
-			<div class="helper-box">
-				<p class="helper-title">Quick rules</p>
-				<ul>
-					<li>Provide at least one Dockerfile.</li>
-					<li>Backend port is mandatory if backend Dockerfile is used.</li>
-					<li>Frontend port is fixed to 80.</li>
-				</ul>
-			</div>
+    <!-- ══════════════════════════════════════════════════════════
+         SECTION 2 — How it works (horizontal workflow diagram)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="lp-how">
+      <div class="lp-section-wrap">
+        <p class="lp-section-eyebrow">How it works</p>
+        <h2 class="lp-section-h2">Three steps to production</h2>
 
-			<div class="actions actions-main">
-				<button id="deploy_btn" onclick="deploy()">Deploy App</button>
-				<button type="button" class="button-link ghost" onclick="fillExample()">Load example</button>
-			</div>
+        <div class="lp-workflow">
+          <!-- Step 1 -->
+          <div class="lp-wf-step">
+            <div class="lp-wf-icon" style="background:var(--purple-dim);border-color:rgba(139,92,246,0.3);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            </div>
+            <div class="lp-wf-num">01</div>
+            <div class="lp-wf-title">Connect Repo</div>
+            <div class="lp-wf-desc">Paste any public GitHub repository URL. AutoDevOps handles the rest.</div>
+          </div>
 
-			<p id="status" class="status-pill">Ready when you are</p>
-			<div id="result" class="result"></div>
-		</section>
-	</main>
+          <!-- Arrow -->
+          <div class="lp-wf-arrow">
+            <svg width="32" height="16" viewBox="0 0 32 16" fill="none"><path d="M0 8h28M22 2l8 6-8 6" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
 
-	<section class="shell guide-shell">
-		<div class="panel guide-card">
-			<p class="eyebrow">Need a format?</p>
-			<h2>Paste-ready deployment checklist</h2>
-			<div class="guide-grid">
-				<div>
-					<strong>Before deploy</strong>
-					<p>Make sure your repo is public, Dockerfile is committed, and AWS credentials can launch EC2.</p>
-				</div>
-				<div>
-					<strong>During deploy</strong>
-					<p>The status card will show EC2 creation, cloning, setup, and final URLs.</p>
-				</div>
-				<div>
-					<strong>After deploy</strong>
-					<p>Use the dashboard to review running apps and terminate old instances when done.</p>
-				</div>
-			</div>
-		</div>
-	</section>
+          <!-- Step 2 -->
+          <div class="lp-wf-step">
+            <div class="lp-wf-icon" style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="lp-wf-num">02</div>
+            <div class="lp-wf-title">Add AWS Keys &amp; Dockerfiles</div>
+            <div class="lp-wf-desc">Credentials go directly to AWS — never stored. Paste your Dockerfile(s).</div>
+          </div>
 
-	<script src="/static/script.js"></script>
+          <!-- Arrow -->
+          <div class="lp-wf-arrow">
+            <svg width="32" height="16" viewBox="0 0 32 16" fill="none"><path d="M0 8h28M22 2l8 6-8 6" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="lp-wf-step">
+            <div class="lp-wf-icon" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#86efac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="lp-wf-num">03</div>
+            <div class="lp-wf-title">Get Live URLs</div>
+            <div class="lp-wf-desc">Watch real-time logs as EC2 spins up. Frontend &amp; backend URLs appear when ready.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SECTION 3 — Deploy form (full-width card, centered)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="lp-deploy" id="deploy">
+      <div class="lp-section-wrap">
+        <p class="lp-section-eyebrow">Deployment form</p>
+        <h2 class="lp-section-h2">Launch a new app</h2>
+
+        <div class="deploy-card-wrap">
+          <!-- Repo -->
+          <div class="deploy-block">
+            <div class="deploy-block-header">
+              <span class="deploy-block-icon" style="background:rgba(139,92,246,0.15);">🔗</span>
+              <span class="deploy-block-title">Repository</span>
+            </div>
+            <div class="field">
+              <label for="repo">GitHub URL</label>
+              <input id="repo" type="url" placeholder="https://github.com/user/repo" autocomplete="off" spellcheck="false" inputmode="url">
+              <span class="field-hint">⚠ Only public GitHub repositories are supported.</span>
+            </div>
+          </div>
+
+          <div class="deploy-divider"></div>
+
+          <!-- AWS Credentials -->
+          <div class="deploy-block">
+            <div class="deploy-block-header">
+              <span class="deploy-block-icon" style="background:rgba(245,158,11,0.12);">🔑</span>
+              <span class="deploy-block-title">AWS Credentials</span>
+              <span class="badge badge-amber" style="margin-left:auto;">Never stored</span>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="aws_key">Access Key ID</label>
+                <input id="aws_key" type="text" placeholder="AKIA…" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="aws_secret">Secret Access Key</label>
+                <input id="aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password" spellcheck="false">
+              </div>
+            </div>
+            <div class="field-hint" style="margin-top:8px;">🛡 Sent directly to your AWS account for this deploy only. Download after deploying to avoid re-entering.</div>
+          </div>
+
+          <div class="deploy-divider"></div>
+
+          <!-- Backend + Frontend side by side on desktop -->
+          <div class="deploy-services-row">
+            <!-- Backend -->
+            <div class="deploy-service-col">
+              <div class="section-toggle" id="toggle-backend" onclick="toggleSection('backend')">
+                <div class="section-toggle-left">
+                  <div class="card-title-icon" style="background:rgba(59,130,246,0.12);">⚙️</div>
+                  <div>
+                    <div class="section-toggle-title">Backend Service</div>
+                    <div class="section-toggle-desc">Optional — has a backend?</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span class="badge badge-blue">Port required</span>
+                  <span class="toggle-chevron">▼</span>
+                </div>
+              </div>
+              <div class="collapsible-content" id="section-backend">
+                <div class="deploy-service-body">
+                  <div class="field">
+                    <label for="backend_port">Backend Port</label>
+                    <input id="backend_port" inputmode="numeric" pattern="[0-9]*" placeholder="8000" style="max-width:160px;">
+                    <span class="field-hint">Port your container exposes.</span>
+                  </div>
+                  <div class="field">
+                    <label for="backend_dockerfile">Backend Dockerfile</label>
+                    <textarea id="backend_dockerfile" placeholder="FROM python:3.11-slim&#10;WORKDIR /app&#10;COPY . /app&#10;RUN pip install -r requirements.txt&#10;EXPOSE 8000&#10;CMD [&quot;uvicorn&quot;, &quot;main:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;]"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vertical separator -->
+            <div class="deploy-services-sep"></div>
+
+            <!-- Frontend -->
+            <div class="deploy-service-col">
+              <div class="section-toggle" id="toggle-frontend" onclick="toggleSection('frontend')">
+                <div class="section-toggle-left">
+                  <div class="card-title-icon" style="background:rgba(34,197,94,0.1);">🌐</div>
+                  <div>
+                    <div class="section-toggle-title">Frontend Service</div>
+                    <div class="section-toggle-desc">Optional — has a frontend?</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span class="badge badge-green">Auto port 80</span>
+                  <span class="toggle-chevron">▼</span>
+                </div>
+              </div>
+              <div class="collapsible-content" id="section-frontend">
+                <div class="deploy-service-body">
+                  <div class="field">
+                    <label for="frontend_dockerfile">Frontend Dockerfile</label>
+                    <textarea id="frontend_dockerfile" placeholder="FROM nginx:alpine&#10;COPY . /usr/share/nginx/html&#10;EXPOSE 80"></textarea>
+                    <span class="field-hint">Frontend always runs on port 80.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="deploy-divider"></div>
+
+          <!-- Actions -->
+          <div class="deploy-block">
+            <div class="deploy-actions-row">
+              <button class="btn btn-primary btn-lg" id="deploy_btn" onclick="deploy()" style="flex:1;min-width:140px;">
+                <span class="btn-text">⚡ Deploy App</span>
+              </button>
+              <button class="btn btn-ghost" onclick="fillExample()">Load example</button>
+              <button class="btn btn-ghost" onclick="clearForm()" title="Clear form">✕</button>
+            </div>
+            <div class="status-bar" id="status_bar" style="margin-top:12px;">
+              <span class="status-dot"></span>
+              <span id="status_text">Ready when you are</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Log terminal -->
+        <div class="log-terminal" id="log_terminal" style="margin-top:16px;max-width:860px;margin-left:auto;margin-right:auto;">
+          <div class="log-terminal-titlebar">
+            <span class="log-dot log-dot-red"></span>
+            <span class="log-dot log-dot-yellow"></span>
+            <span class="log-dot log-dot-green"></span>
+            <span class="log-terminal-title">deploy.log</span>
+          </div>
+          <div class="log-body" id="log_body"></div>
+        </div>
+
+        <!-- Result card -->
+        <div class="result-card" id="result_card" style="margin-top:16px;max-width:860px;margin-left:auto;margin-right:auto;">
+          <div class="result-card-header">
+            <span>✅</span>
+            <span>Deployment successful</span>
+            <button class="btn btn-ghost btn-sm" onclick="downloadCredentials()" style="margin-left:auto;" title="Save AWS credentials locally">⬇ Save credentials</button>
+          </div>
+          <div class="result-card-body" id="result_body"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SECTION 4 — Before you start (checklist)
+    ══════════════════════════════════════════════════════════════ -->
+    <section class="lp-checklist">
+      <div class="lp-section-wrap">
+        <p class="lp-section-eyebrow">Before you start</p>
+        <div class="lp-checklist-grid">
+          <div class="lp-check-item">
+            <div class="lp-check-icon" style="background:var(--purple-dim);">📋</div>
+            <div class="lp-check-title">Pre-flight</div>
+            <div class="lp-check-desc">Repo must be public. Dockerfile must be committed. AWS credentials need EC2 launch permissions (AmazonEC2FullAccess).</div>
+          </div>
+          <div class="lp-check-item">
+            <div class="lp-check-icon" style="background:var(--blue-dim);">📡</div>
+            <div class="lp-check-title">During deploy</div>
+            <div class="lp-check-desc">The live log shows each step — EC2 instance creation, git clone, Docker build, and container start.</div>
+          </div>
+          <div class="lp-check-item">
+            <div class="lp-check-icon" style="background:var(--green-dim);">🔗</div>
+            <div class="lp-check-title">After deploy</div>
+            <div class="lp-check-desc">Open the Dashboard to see all running apps. Terminate instances when done to stop AWS charges.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      AutoDevOps — Deploying to your AWS account &middot;
+      <a href="/dashboard" style="color:var(--ink-2);">View Dashboard</a>
+    </footer>
+
+  </div><!-- /page-wrapper -->
+
+  <div class="toast-container" id="toast_container"></div>
+  <input id="frontend_port" type="hidden" value="80">
+  <script src="/static/script.js"></script>
 </body>
 </html>

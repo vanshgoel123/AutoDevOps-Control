@@ -1,116 +1,322 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0e1a2b">
-    <title>AutoDevOps Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d0f">
+  <meta name="description" content="Monitor and manage your live AWS EC2 deployments.">
+  <title>Dashboard — AutoDevOps</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
 </head>
 <body>
-    <div class="bg-grid"></div>
-    <div class="bg-orb bg-orb-a"></div>
-    <div class="bg-orb bg-orb-b"></div>
-    <main class="shell shell-dashboard">
-        <header class="dashboard-top panel">
-            <div>
-                <p class="kicker">Live Deployments</p>
-                <h1>Application Dashboard</h1>
-                <p class="subcopy">Review deployed apps, open live URLs, or terminate instances when you are done.</p>
-            </div>
-            <div class="actions">
-                <a class="button-link ghost" href="/">New Deploy</a>
-                <button onclick="load()">Refresh</button>
-            </div>
-        </header>
+  <div class="glow-blob glow-blob-1"></div>
+  <div class="glow-blob glow-blob-2"></div>
 
-        <p id="action_status" class="status-pill subtle">Ready</p>
-        <section id="apps" class="apps-grid"></section>
-    </main>
+  <div class="page-wrapper">
+    <!-- Nav -->
+    <nav class="nav">
+      <a class="nav-logo" href="/">
+        <div class="nav-logo-icon">⚡</div>
+        <span class="nav-logo-text">AutoDevOps</span>
+      </a>
+      <div class="nav-actions">
+        <button class="btn btn-ghost btn-sm" onclick="loadApps()" id="refresh_btn">↺ Refresh</button>
+        <a class="btn btn-primary btn-sm" href="/">+ New Deploy</a>
+      </div>
+    </nav>
 
-    <script>
-    async function load() {
-        let res = await fetch("/apps");
-        let data = await res.json();
-        const actionStatus = document.getElementById("action_status");
+    <!-- Dashboard content -->
+    <div class="container-wide">
 
-        actionStatus.innerText = "Updated " + new Date().toLocaleTimeString();
+      <!-- Header -->
+      <div class="dashboard-header">
+        <h1>Deployments</h1>
+        <p>All apps deployed from your AWS account. Terminate instances when done to avoid charges.</p>
+      </div>
 
-        let html = "";
+      <!-- Toolbar -->
+      <div class="dashboard-toolbar">
+        <div class="dashboard-count">
+          <span id="app_count_label">Loading…</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <!-- AWS creds needed for terminate — prompt inline if missing -->
+          <div id="creds_warning" style="display:none;">
+            <span style="font-size:0.8rem;color:#fcd34d;">⚠ Enter AWS credentials to enable terminate</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="showCredsModal()" id="creds_btn" title="Set AWS credentials for this session">🔑 Set credentials</button>
+        </div>
+      </div>
 
-        if (!data.apps || data.apps.length === 0) {
-            html = '<article class="panel app-card empty"><strong>No active deployments found.</strong><p>Start a new deploy from the home page.</p></article>';
-        } else {
-            data.apps.forEach(app => {
-                const instanceId = app[4];
-                const isDeleted = String(app[3] || "").toUpperCase() === "DELETED";
-                const canTerminate = instanceId && String(instanceId).startsWith("i-") && !isDeleted;
-                html += `
-                <article class="panel app-card">
-                    <div class="card-topline">
-                        <span class="chip small ${isDeleted ? 'muted' : 'accent'}">${app[3]}</span>
-                        <span class="app-id">${app[0]}</span>
-                    </div>
-                    <div class="repo-block">
-                        <p class="label">Repository</p>
-                        <p class="repo">${app[1]}</p>
-                    </div>
-                    <div class="link-stack">
-                        <p class="label">Live URL</p>
-                        <a class="app-link" href="${app[2]}" target="_blank" rel="noopener noreferrer">${app[2]}</a>
-                    </div>
-                    <div class="card-actions">
-                        <button class="danger" onclick="del('${instanceId || ''}')" ${canTerminate ? '' : 'disabled'}>
-                            ${canTerminate ? 'Terminate Instance' : 'Already Terminated'}
-                        </button>
-                    </div>
-                </article>
-                `;
-            });
-        }
+      <!-- Apps grid -->
+      <div class="apps-grid" id="apps_grid">
+        <!-- skeleton placeholders -->
+        <div class="app-card" style="gap:12px;">
+          <div class="skeleton" style="height:18px;width:60%;border-radius:6px;"></div>
+          <div class="skeleton" style="height:14px;width:40%;border-radius:6px;"></div>
+          <div class="skeleton" style="height:38px;border-radius:10px;"></div>
+          <div class="skeleton" style="height:36px;border-radius:10px;"></div>
+        </div>
+        <div class="app-card" style="gap:12px;">
+          <div class="skeleton" style="height:18px;width:70%;border-radius:6px;"></div>
+          <div class="skeleton" style="height:14px;width:35%;border-radius:6px;"></div>
+          <div class="skeleton" style="height:38px;border-radius:10px;"></div>
+          <div class="skeleton" style="height:36px;border-radius:10px;"></div>
+        </div>
+        <div class="app-card" style="gap:12px;">
+          <div class="skeleton" style="height:18px;width:50%;border-radius:6px;"></div>
+          <div class="skeleton" style="height:14px;width:45%;border-radius:6px;"></div>
+          <div class="skeleton" style="height:38px;border-radius:10px;"></div>
+          <div class="skeleton" style="height:36px;border-radius:10px;"></div>
+        </div>
+      </div>
 
-        document.getElementById("apps").innerHTML = html;
+    </div><!-- /container-wide -->
+
+    <!-- Credentials modal (inline overlay) -->
+    <div id="creds_modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px;">
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-xl);padding:24px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.6);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:var(--ink);">AWS Credentials</div>
+            <div style="font-size:0.8rem;color:var(--ink-3);margin-top:2px;">Needed to terminate EC2 instances</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="hideCredsModal()" style="padding:6px 10px;">✕</button>
+        </div>
+        <div class="field" style="margin-bottom:12px;">
+          <label for="modal_aws_key">Access Key ID</label>
+          <input id="modal_aws_key" type="text" placeholder="AKIA…" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field" style="margin-bottom:18px;">
+          <label for="modal_aws_secret">Secret Access Key</label>
+          <input id="modal_aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-full" onclick="saveModalCreds()">Save for session</button>
+          <button class="btn btn-ghost" onclick="hideCredsModal()">Cancel</button>
+        </div>
+        <p style="font-size:0.75rem;color:var(--ink-3);margin-top:12px;line-height:1.5;">Credentials are stored in your browser's session memory only. They are cleared when you close this tab.</p>
+      </div>
+    </div>
+
+    <footer class="footer">
+      AutoDevOps — <a href="/" style="color:var(--ink-2);">Deploy a new app</a>
+    </footer>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast_container"></div>
+
+  <script>
+    // ── Session credentials (never leave the browser) ─────────────
+    let _sessionKey    = sessionStorage.getItem("_adops_key")    || "";
+    let _sessionSecret = sessionStorage.getItem("_adops_secret") || "";
+
+    function getCredentials() {
+      // Prefer sessionStorage (set via modal), fall back to localStorage (set during deploy on index page)
+      const key    = sessionStorage.getItem("_adops_key")    || localStorage.getItem("aws_key")    || "";
+      const secret = sessionStorage.getItem("_adops_secret") || localStorage.getItem("aws_secret") || "";
+      return { key, secret };
     }
 
-    async function del(id) {
-        const statusEl = document.getElementById("action_status");
-
-        if (!id || !id.startsWith("i-")) {
-            statusEl.innerText = "Invalid instance id, cannot terminate.";
-            return;
-        }
-
-        const awsKey = localStorage.getItem("aws_key") || "";
-        const awsSecret = localStorage.getItem("aws_secret") || "";
-
-        if (!awsKey || !awsSecret) {
-            statusEl.innerText = "AWS credentials not found. Please deploy once from home page in this browser, then retry terminate.";
-            return;
-        }
-
-        statusEl.innerText = `Terminating ${id}...`;
-
-        try {
-            const res = await fetch("/delete/" + id, {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ aws_key: awsKey, aws_secret: awsSecret })
-            });
-            const data = await res.json();
-
-            if (!res.ok) {
-                statusEl.innerText = data.detail || "Terminate failed";
-                return;
-            }
-
-            statusEl.innerText = data.message || `Instance ${id} deletion initiated.`;
-            await load();
-        } catch (e) {
-            statusEl.innerText = "Network error while terminating instance.";
-        }
+    function showCredsModal() {
+      const modal = document.getElementById("creds_modal");
+      const { key, secret } = getCredentials();
+      document.getElementById("modal_aws_key").value    = key;
+      document.getElementById("modal_aws_secret").value = secret;
+      modal.style.display = "flex";
     }
 
-    load();
-    </script>
+    function hideCredsModal() {
+      document.getElementById("creds_modal").style.display = "none";
+    }
+
+    function saveModalCreds() {
+      const key    = document.getElementById("modal_aws_key").value.trim();
+      const secret = document.getElementById("modal_aws_secret").value.trim();
+      if (!key || !secret) {
+        showToast("Both fields are required.", "error");
+        return;
+      }
+      sessionStorage.setItem("_adops_key",    key);
+      sessionStorage.setItem("_adops_secret", secret);
+      hideCredsModal();
+      showToast("Credentials saved for this session.", "success");
+      document.getElementById("creds_warning").style.display = "none";
+    }
+
+    // Close modal on backdrop click
+    document.getElementById("creds_modal").addEventListener("click", function(e) {
+      if (e.target === this) hideCredsModal();
+    });
+
+    // ── Toast ──────────────────────────────────────────────────────
+    function showToast(msg, type = "info") {
+      const container = document.getElementById("toast_container");
+      const t = document.createElement("div");
+      const icons = { success: "✅", error: "❌", info: "💬" };
+      t.className = `toast toast-${type}`;
+      t.innerHTML = `<span>${icons[type] || "💬"}</span><span>${msg}</span>`;
+      container.appendChild(t);
+      setTimeout(() => {
+        t.classList.add("fadeout");
+        setTimeout(() => t.remove(), 300);
+      }, 3500);
+    }
+
+    // ── Load apps ──────────────────────────────────────────────────
+    async function loadApps() {
+      const grid = document.getElementById("apps_grid");
+      const btn  = document.getElementById("refresh_btn");
+      btn.disabled = true;
+      btn.textContent = "↺ Loading…";
+
+      try {
+        const res  = await fetch("/apps");
+        if (!res.ok) throw new Error("Server error " + res.status);
+        const data = await res.json();
+        const apps = data.apps || [];
+
+        const countLabel = document.getElementById("app_count_label");
+        const running = apps.filter(a => String(a[3] || "").toUpperCase() !== "DELETED").length;
+
+        if (apps.length === 0) {
+          countLabel.innerHTML = "No deployments yet";
+          grid.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1;">
+              <div class="empty-state-icon">📭</div>
+              <h3>No deployments found</h3>
+              <p>Head back to the home page and deploy your first app.</p>
+              <a class="btn btn-primary" href="/" style="margin-top:8px;">+ New Deploy</a>
+            </div>`;
+          return;
+        }
+
+        countLabel.innerHTML = `<span class="dashboard-count-num">${apps.length}</span> total &nbsp;·&nbsp; <span class="dashboard-count-num" style="color:var(--green);">${running}</span> running`;
+
+        const { key, secret } = getCredentials();
+        if (!key || !secret) {
+          document.getElementById("creds_warning").style.display = "block";
+        }
+
+        grid.innerHTML = apps.map((app, i) => {
+          const [appId, repo, url, status, instanceId] = app;
+          const isDeleted  = String(status || "").toUpperCase() === "DELETED";
+          const canTerminate = instanceId && String(instanceId).startsWith("i-") && !isDeleted;
+          const statusClass = isDeleted ? "status-deleted" : "status-running";
+          const statusLabel = String(status || "UNKNOWN").toUpperCase();
+
+          const urlSection = url
+            ? `<div class="app-card-url">
+                <span class="app-card-url-icon">🔗</span>
+                <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>
+               </div>`
+            : `<div class="app-card-url">
+                <span class="app-card-url-icon">🔗</span>
+                <span class="app-card-url-empty">No URL yet</span>
+               </div>`;
+
+          return `
+          <div class="app-card" style="animation-delay:${i * 50}ms">
+            <div class="app-card-top">
+              <div class="app-card-info">
+                <div class="app-card-repo">${escHtml(repo)}</div>
+                <div class="app-card-id">${escHtml(appId)}</div>
+              </div>
+              <span class="status-badge ${statusClass}">
+                <span class="status-badge-dot"></span>
+                ${statusLabel}
+              </span>
+            </div>
+            ${urlSection}
+            ${instanceId ? `<div style="font-size:0.72rem;color:var(--ink-3);font-family:var(--font-mono);">Instance: ${escHtml(instanceId)}</div>` : ""}
+            <div class="app-card-footer">
+              ${url ? `<a class="btn btn-ghost btn-sm" href="${url}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}
+              <button
+                class="btn btn-danger btn-sm"
+                onclick="terminateApp('${escHtml(instanceId || "")}', this)"
+                ${canTerminate ? "" : "disabled"}
+                title="${canTerminate ? "Terminate EC2 instance" : "Already terminated"}">
+                ${isDeleted ? "Terminated" : "Terminate"}
+              </button>
+            </div>
+          </div>`;
+        }).join("");
+
+      } catch (err) {
+        document.getElementById("app_count_label").textContent = "Failed to load";
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="empty-state-icon">⚠️</div>
+            <h3>Could not load deployments</h3>
+            <p>${err.message || "Network error — check your connection."}</p>
+            <button class="btn btn-ghost" onclick="loadApps()" style="margin-top:8px;">Try again</button>
+          </div>`;
+        showToast("Failed to load apps: " + (err.message || "unknown error"), "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↺ Refresh";
+      }
+    }
+
+    // ── Terminate ──────────────────────────────────────────────────
+    async function terminateApp(instanceId, btnEl) {
+      if (!instanceId || !instanceId.startsWith("i-")) {
+        showToast("Invalid instance ID.", "error");
+        return;
+      }
+
+      const { key, secret } = getCredentials();
+      if (!key || !secret) {
+        showToast("No AWS credentials — click 'Set credentials' first.", "error");
+        showCredsModal();
+        return;
+      }
+
+      const confirmed = confirm(`Terminate instance ${instanceId}?\n\nThis will stop and remove the EC2 instance. This action cannot be undone.`);
+      if (!confirmed) return;
+
+      btnEl.disabled = true;
+      btnEl.textContent = "Terminating…";
+
+      try {
+        const res = await fetch("/delete/" + instanceId, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ aws_key: key, aws_secret: secret }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast(data.detail || "Terminate failed.", "error");
+          btnEl.disabled = false;
+          btnEl.textContent = "Terminate";
+          return;
+        }
+
+        showToast(data.message || `Instance ${instanceId} terminated.`, "success");
+        // Refresh after short delay so DB status is updated
+        setTimeout(loadApps, 800);
+
+      } catch (err) {
+        showToast("Network error during termination.", "error");
+        btnEl.disabled = false;
+        btnEl.textContent = "Terminate";
+      }
+    }
+
+    // ── HTML escape ────────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // ── Boot ───────────────────────────────────────────────────────
+    loadApps();
+  </script>
 </body>
 </html>
