@@ -6,15 +6,32 @@
   <meta name="theme-color" content="#0b0d0f">
   <meta name="description" content="Monitor and manage your live AWS EC2 deployments.">
   <title>Dashboard — AutoDevOps</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=3">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
   <script>
-    // Inline theme init to avoid flash of wrong theme
-    (function() {
+    function getStoredTheme() {
       var saved = localStorage.getItem('adops-theme');
-      var preferred = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', saved || preferred);
-    })();
+      if (saved) return saved;
+      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('adops-theme', theme);
+      var btn = document.getElementById('theme_toggle_btn');
+      if (btn) btn.textContent = (theme === 'light' ? '🌙' : '☀️');
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f6fa' : '#0b0d0f');
+    }
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      var next = (current === 'dark' ? 'light' : 'dark');
+      applyTheme(next);
+    }
+    // Execute immediately to prevent flash
+    document.documentElement.setAttribute('data-theme', getStoredTheme());
+    document.addEventListener('DOMContentLoaded', function() {
+      applyTheme(getStoredTheme());
+    });
   </script>
 </head>
 <body>
@@ -29,7 +46,7 @@
         <span class="nav-logo-text">AutoDevOps</span>
       </a>
       <div class="nav-actions">
-        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">🌙</button>
+        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">☀️</button>
         <button class="btn btn-ghost btn-sm" onclick="loadApps()" id="refresh_btn">↺ Refresh</button>
         <a class="btn btn-primary btn-sm" href="/">+ New Deploy</a>
       </div>
