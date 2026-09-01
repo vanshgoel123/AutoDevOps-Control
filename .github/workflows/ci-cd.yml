@@ -29,12 +29,7 @@ jobs:
 
       - name: Run flake8
         run: |
-          flake8 backend/ \
-            --max-line-length=120 \
-            --ignore=E501,W503,E402 \
-            --exclude=__pycache__,*.pyc \
-            --statistics \
-            --count
+          flake8 backend/ --config=.flake8
 
   # ─────────────────────────────────────────────────────────────────
   # JOB 2: Test  (pytest) — runs after lint passes

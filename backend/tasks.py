@@ -58,12 +58,12 @@ def deploy_app(self, repo_url, aws_key, aws_secret, app_type, custom_dockerfile,
     env_vars          : Raw .env file contents (KEY=VALUE lines), or None
     """
     instance_id = None
-    key_name    = None
-    sg_id       = None
-    key_path    = None
+    key_name = None
+    sg_id = None
+    key_path = None
     local_env_file = None   # temp file on the orchestrator
 
-    effective_aws_key    = aws_key    or AWS_ACCESS_KEY
+    effective_aws_key = aws_key or AWS_ACCESS_KEY
     effective_aws_secret = aws_secret or AWS_SECRET_KEY
 
     try:
@@ -160,10 +160,10 @@ sudo docker run -d -p 80:80 {env_file_flag} --restart unless-stopped adops_app
         print(f"[DEPLOY {app_id}] Done — url={url}")
 
         return {
-            "app_id":      app_id,
-            "url":         url,
+            "app_id": app_id,
+            "url": url,
             "instance_id": instance_id,
-            "app_type":    app_type,
+            "app_type": app_type,
         }
 
     except Exception as e:

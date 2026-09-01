@@ -1,6 +1,14 @@
-import boto3
-from config import *
 import os
+import boto3
+from config import (
+    AWS_ACCESS_KEY,
+    AWS_SECRET_KEY,
+    REGION,
+    AMI_ID,
+    INSTANCE_TYPE,
+    ROOT_VOLUME_SIZE_GB,
+)
+
 
 def get_ec2_clients(aws_key=None, aws_secret=None):
     key = aws_key or AWS_ACCESS_KEY
@@ -100,7 +108,6 @@ def create_ec2(app_id, aws_key=None, aws_secret=None, backend_port=None):
                 },
             }
         ],
-        
         MinCount=1,
         MaxCount=1,
     )[0]

@@ -1,6 +1,5 @@
-import paramiko
 import time
-import os
+import paramiko
 
 
 def _get_ssh_client(ip, key_path):
