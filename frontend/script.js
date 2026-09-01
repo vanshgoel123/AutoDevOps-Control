@@ -1,30 +1,84 @@
 /* ─────────────────────────────────────────────────────────────────
    AutoDevOps — script.js
-   Handles: theme toggle, deploy form, real-time status polling,
-            log terminal, credential storage (session only),
-            credential download, section toggles, form helpers,
-            toast notifications.
+   Full Overhaul Implementation:
+   - Single-service, Port-80 deployment model
+   - Runtime selector: Python | Node.js | Custom
+   - Live Dockerfile template preview & custom Dockerfile support
+   - Secure Environment Variables (.env) injection
+   - Real-time deployment polling & log terminal
+   - Transient credentials handling & download helper
+   - Theme toggle (Dark / Light) with persistence
 ───────────────────────────────────────────────────────────────── */
 
 "use strict";
 
-// ── State ──────────────────────────────────────────────────────────
-let _deployInProgress = false;
-let _pollInterval = null;
-let _lastTaskId = null;
+// ── Dockerfile Templates ───────────────────────────────────────────
+const TEMPLATES = {
+  python:
+`FROM python:3.11-slim
+WORKDIR /app
+COPY . .
+RUN pip install --no-cache-dir -r requirements.txt 2>/dev/null || true
+EXPOSE 80
+ENV PORT=80
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 80 2>/dev/null || gunicorn -b 0.0.0.0:80 app:app 2>/dev/null || python app.py"]`,
 
-// ── Theme ──────────────────────────────────────────────────────────
+  nodejs:
+`FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+EXPOSE 80
+ENV PORT=80
+CMD ["sh", "-c", "npm start 2>/dev/null || node index.js 2>/dev/null || node server.js"]`,
+};
+
+// ── State ──────────────────────────────────────────────────────────
+let _currentAppType   = "python";
+let _deployInProgress = false;
+let _pollInterval     = null;
+let _lastTaskId       = null;
+
+// ── Runtime Selection ──────────────────────────────────────────────
+function selectAppType(type) {
+  _currentAppType = type;
+
+  // Update pills active state
+  ["python", "nodejs", "custom"].forEach(t => {
+    const pill = document.getElementById("pill_" + t);
+    if (pill) {
+      if (t === type) pill.classList.add("active");
+      else pill.classList.remove("active");
+    }
+  });
+
+  const autoWrap   = document.getElementById("auto_dockerfile_wrap");
+  const customWrap = document.getElementById("custom_dockerfile_wrap");
+  const codeEl     = document.getElementById("df_preview_code");
+
+  if (type === "custom") {
+    if (autoWrap)   autoWrap.style.display   = "none";
+    if (customWrap) customWrap.style.display = "block";
+  } else {
+    if (autoWrap)   autoWrap.style.display   = "block";
+    if (customWrap) customWrap.style.display = "none";
+    if (codeEl)     codeEl.textContent       = TEMPLATES[type] || "";
+  }
+}
+
+// ── Theme Helpers ──────────────────────────────────────────────────
 function initTheme() {
-  const saved = localStorage.getItem("adops-theme");
-  const preferred = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  const theme = saved || preferred;
+  const saved     = localStorage.getItem("adops-theme");
+  const preferred = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  const theme     = saved || preferred;
   document.documentElement.setAttribute("data-theme", theme);
   _updateThemeIcon(theme);
 }
 
 function toggleTheme() {
   const current = document.documentElement.getAttribute("data-theme") || "dark";
-  const next = current === "dark" ? "light" : "dark";
+  const next    = current === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("adops-theme", next);
   _updateThemeIcon(next);
@@ -33,26 +87,22 @@ function toggleTheme() {
 function _updateThemeIcon(theme) {
   const btn = document.getElementById("theme_toggle_btn");
   if (btn) btn.textContent = theme === "light" ? "🌙" : "☀️";
-  // Also update meta theme-color for mobile browsers
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", theme === "light" ? "#f5f6fa" : "#0b0d0f");
 }
 
-// Run immediately on load
-initTheme();
-
-// ── Section toggles ────────────────────────────────────────────────
+// ── Collapsible Section Toggle ─────────────────────────────────────
 function toggleSection(name) {
   const content = document.getElementById("section-" + name);
-  const toggle = document.getElementById("toggle-" + name);
-  if (!content || !toggle) return;
+  const toggle  = document.getElementById("toggle-" + name);
+  if (!content) return;
 
   const isOpen = content.classList.contains("open");
   content.classList.toggle("open", !isOpen);
-  toggle.classList.toggle("open", !isOpen);
+  if (toggle) toggle.classList.toggle("open", !isOpen);
 }
 
-// ── Toast ──────────────────────────────────────────────────────────
+// ── Toast Notifications ────────────────────────────────────────────
 function showToast(msg, type = "info") {
   const container = document.getElementById("toast_container");
   if (!container) return;
@@ -67,9 +117,9 @@ function showToast(msg, type = "info") {
   }, 3500);
 }
 
-// ── Status bar helpers ─────────────────────────────────────────────
+// ── Status Bar ─────────────────────────────────────────────────────
 function setStatus(text, state = "") {
-  const bar = document.getElementById("status_bar");
+  const bar  = document.getElementById("status_bar");
   const span = document.getElementById("status_text");
   if (!bar || !span) return;
 
@@ -77,7 +127,7 @@ function setStatus(text, state = "") {
   span.textContent = text;
 }
 
-// ── Log terminal ───────────────────────────────────────────────────
+// ── Log Terminal ───────────────────────────────────────────────────
 function showTerminal() {
   const t = document.getElementById("log_terminal");
   if (t) t.classList.add("visible");
@@ -120,7 +170,6 @@ function removeLogCursor() {
   if (el) el.remove();
 }
 
-// ── HTML escape ────────────────────────────────────────────────────
 function escHtml(str) {
   return String(str || "")
     .replace(/&/g, "&amp;")
@@ -129,22 +178,19 @@ function escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-// ── Deploy button state ────────────────────────────────────────────
+// ── Deploy Button State ────────────────────────────────────────────
 function setDeployButtonState(loading) {
   const btn = document.getElementById("deploy_btn");
   if (!btn) return;
-  if (loading) {
-    btn.classList.add("btn-loading");
-    btn.disabled = true;
-  } else {
-    btn.classList.remove("btn-loading");
-    btn.disabled = false;
-  }
+  btn.disabled = loading;
+  if (loading) btn.classList.add("btn-loading");
+  else btn.classList.remove("btn-loading");
+
   const textEl = btn.querySelector(".btn-text");
-  if (textEl) textEl.textContent = loading ? "Deploying…" : "⚡ Deploy App";
+  if (textEl) textEl.textContent = loading ? "Deploying on EC2…" : "⚡ Deploy App (Port 80)";
 }
 
-// ── Result card ────────────────────────────────────────────────────
+// ── Result Card ────────────────────────────────────────────────────
 function showResultCard(html) {
   const card = document.getElementById("result_card");
   const body = document.getElementById("result_body");
@@ -158,41 +204,32 @@ function hideResultCard() {
   if (card) card.classList.remove("visible");
 }
 
-// ── Credential storage ─────────────────────────────────────────────
-// Credentials are stored in sessionStorage (cleared on tab close) and
-// also in localStorage so the dashboard can fall back to them.
-// They are NEVER sent anywhere except as the AWS auth payload to /deploy
-// and /delete. The backend does NOT persist them in the database.
+// ── Session Credentials ────────────────────────────────────────────
 function storeCredentials(key, secret) {
   try {
-    sessionStorage.setItem("_adops_key", key);
+    sessionStorage.setItem("_adops_key",    key);
     sessionStorage.setItem("_adops_secret", secret);
-    // Also store in localStorage so dashboard can find them
-    // after page navigation within the same browser session.
-    localStorage.setItem("aws_key", key);
-    localStorage.setItem("aws_secret", secret);
-  } catch (_) { }
+    localStorage.setItem("aws_key",         key);
+    localStorage.setItem("aws_secret",      secret);
+  } catch (_) {}
 }
 
 function getStoredCredentials() {
   return {
-    key: sessionStorage.getItem("_adops_key") || localStorage.getItem("aws_key") || "",
+    key:    sessionStorage.getItem("_adops_key")    || localStorage.getItem("aws_key")    || "",
     secret: sessionStorage.getItem("_adops_secret") || localStorage.getItem("aws_secret") || "",
   };
 }
 
-// ── Credential download ────────────────────────────────────────────
-// Gives the user a .env file with their credentials so they don't
-// have to re-enter them every time they come back.
 function downloadCredentials() {
-  const awsKeyInput = document.getElementById("aws_key");
-  const awsSecretInput = document.getElementById("aws_secret");
+  const keyInput    = document.getElementById("aws_key");
+  const secretInput = document.getElementById("aws_secret");
 
-  const key = (awsKeyInput ? awsKeyInput.value.trim() : "") || getStoredCredentials().key;
-  const secret = (awsSecretInput ? awsSecretInput.value.trim() : "") || getStoredCredentials().secret;
+  const key    = (keyInput    ? keyInput.value.trim()    : "") || getStoredCredentials().key;
+  const secret = (secretInput ? secretInput.value.trim() : "") || getStoredCredentials().secret;
 
   if (!key || !secret) {
-    showToast("No credentials to save. Deploy first.", "error");
+    showToast("No credentials to save.", "error");
     return;
   }
 
@@ -205,37 +242,35 @@ function downloadCredentials() {
   ].join("\n");
 
   const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
   a.download = "aws_credentials.env";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  showToast("Credentials saved as aws_credentials.env", "success");
+  showToast("Saved aws_credentials.env", "success");
 }
 
-// ── Main deploy function ───────────────────────────────────────────
+// ── Deploy Submission ──────────────────────────────────────────────
 async function deploy() {
   if (_deployInProgress) {
     showToast("Deployment already in progress.", "info");
     return;
   }
 
-  // Collect inputs
-  const repo = (document.getElementById("repo")?.value || "").trim();
-  const awsKey = (document.getElementById("aws_key")?.value || "").trim();
-  const awsSecret = (document.getElementById("aws_secret")?.value || "").trim();
-  const backendPort = (document.getElementById("backend_port")?.value || "").trim();
-  const backendDf = (document.getElementById("backend_dockerfile")?.value || "").trim();
-  const frontendDf = (document.getElementById("frontend_dockerfile")?.value || "").trim();
+  const repo        = (document.getElementById("repo")?.value || "").trim();
+  const awsKey      = (document.getElementById("aws_key")?.value || "").trim();
+  const awsSecret   = (document.getElementById("aws_secret")?.value || "").trim();
+  const customDf    = (document.getElementById("custom_dockerfile")?.value || "").trim();
+  const envVars     = (document.getElementById("env_vars")?.value || "").trim();
 
-  // ── Validation ────────────────────────────────────────────────
+  // ── Validation ───────────────────────────────────────────────────
   if (!repo) {
-    setStatus("Enter a GitHub repository URL first.", "error");
-    showToast("Repository URL is required.", "error");
+    setStatus("Enter a GitHub repository URL.", "error");
+    showToast("GitHub URL is required.", "error");
     document.getElementById("repo")?.focus();
     return;
   }
@@ -254,44 +289,32 @@ async function deploy() {
     return;
   }
 
-  if (!backendDf && !frontendDf) {
-    setStatus("Provide at least one Dockerfile.", "error");
-    showToast("Paste at least one Dockerfile (backend or frontend).", "error");
+  if (_currentAppType === "custom" && !customDf) {
+    setStatus("Custom Dockerfile content is required.", "error");
+    showToast("Paste your custom Dockerfile.", "error");
+    document.getElementById("custom_dockerfile")?.focus();
     return;
   }
 
-  if (backendDf && !backendPort) {
-    setStatus("Backend port is required when using a backend Dockerfile.", "error");
-    showToast("Enter the backend port number.", "error");
-    // Auto-expand the backend section so user can see the port field
-    const sec = document.getElementById("section-backend");
-    const tog = document.getElementById("toggle-backend");
-    if (sec && !sec.classList.contains("open")) {
-      sec.classList.add("open");
-      tog && tog.classList.add("open");
-    }
-    document.getElementById("backend_port")?.focus();
-    return;
-  }
-
-  const backendPortNum = backendPort ? Number(backendPort) : null;
-  const frontendPort = frontendDf ? 80 : null;
-
-  // ── Persist credentials ───────────────────────────────────────
+  // ── Save credentials for current session ─────────────────────────
   storeCredentials(awsKey, awsSecret);
 
-  // ── UI: start state ───────────────────────────────────────────
+  // ── Start UI state ───────────────────────────────────────────────
   _deployInProgress = true;
   setDeployButtonState(true);
   hideResultCard();
   clearLog();
   showTerminal();
   setStatus("Queuing deployment…", "active");
-  appendLog("Validating inputs…", "info");
-  appendLog(`Repo: ${repo}`, "");
-  if (backendDf) appendLog(`Backend port: ${backendPortNum}`, "");
-  if (frontendDf) appendLog("Frontend port: 80", "");
-  appendLog("Sending to worker…", "info");
+
+  appendLog("Validating request…", "info");
+  appendLog(`Repository: ${repo}`);
+  appendLog(`Runtime: ${_currentAppType.toUpperCase()} (Port 80)`);
+  if (envVars) {
+    const lineCount = envVars.split("\n").filter(l => l.trim() && !l.startsWith("#")).length;
+    appendLog(`ENV Variables: ${lineCount} variable(s) attached (will be shredded on boot)`, "info");
+  }
+  appendLog("Submitting task to worker…", "info");
   appendLogCursor();
 
   try {
@@ -299,13 +322,12 @@ async function deploy() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        repo_url: repo,
-        aws_key: awsKey,
-        aws_secret: awsSecret,
-        backend_port: backendPortNum,
-        frontend_port: frontendPort,
-        backend_dockerfile: backendDf || null,
-        frontend_dockerfile: frontendDf || null,
+        repo_url:          repo,
+        aws_key:           awsKey,
+        aws_secret:        awsSecret,
+        app_type:          _currentAppType,
+        custom_dockerfile: _currentAppType === "custom" ? customDf : null,
+        env_vars:          envVars || null,
       }),
     });
 
@@ -321,10 +343,10 @@ async function deploy() {
 
     _lastTaskId = data.task_id;
     removeLogCursor();
-    appendLog(`Task queued — ID: ${data.task_id}`, "success");
-    appendLog("Polling for status…", "info");
+    appendLog(`Task queued successfully (ID: ${data.task_id})`, "success");
+    appendLog("Waiting for worker…", "info");
     appendLogCursor();
-    setStatus("Worker picked up the task…", "active");
+    setStatus("Worker provisioning EC2…", "active");
 
     startPolling(data.task_id);
 
@@ -338,12 +360,12 @@ async function deploy() {
   }
 }
 
-// ── Status polling ─────────────────────────────────────────────────
+// ── Real-time Status Polling ───────────────────────────────────────
 function startPolling(taskId) {
   if (_pollInterval) clearInterval(_pollInterval);
 
   let attempts = 0;
-  const MAX_ATTEMPTS = 180; // 6 minutes at 2s intervals
+  const MAX_ATTEMPTS = 180; // ~6 minutes at 2s interval
 
   _pollInterval = setInterval(async () => {
     attempts++;
@@ -351,9 +373,9 @@ function startPolling(taskId) {
     if (attempts > MAX_ATTEMPTS) {
       clearInterval(_pollInterval);
       removeLogCursor();
-      appendLog("Timeout — deploy is taking too long. Check dashboard later.", "error");
-      setStatus("Timed out. Check dashboard for status.", "error");
-      showToast("Deploy timed out after 6 minutes.", "error");
+      appendLog("Timeout: Deployment is taking longer than expected. Check the dashboard.", "error");
+      setStatus("Timed out. Check dashboard for live status.", "error");
+      showToast("Deployment timed out after 6 minutes.", "error");
       _deployInProgress = false;
       setDeployButtonState(false);
       return;
@@ -361,13 +383,12 @@ function startPolling(taskId) {
 
     try {
       const res = await fetch("/status/" + taskId);
-      if (!res.ok) return; // transient error, keep polling
+      if (!res.ok) return;
 
-      const data = await res.json();
+      const data  = await res.json();
       const state = data.state || "";
-      const meta = data.meta || {};
+      const meta  = data.meta  || {};
 
-      // Update log with step info from worker metadata
       if (meta.step) {
         removeLogCursor();
         appendLog(meta.step, "info");
@@ -379,7 +400,7 @@ function startPolling(taskId) {
         setStatus("Waiting for worker to pick up task…", "active");
       }
 
-      if (state === "STARTED") {
+      if (state === "PROGRESS" || state === "STARTED") {
         setStatus(meta.step || "Deploying on AWS infrastructure…", "active");
       }
 
@@ -392,51 +413,38 @@ function startPolling(taskId) {
         const result = data.result || {};
 
         if (result.error) {
-          // Task completed but reported an application-level error
-          appendLog("Deploy error: " + result.error, "error");
-          setStatus("Deployment failed — " + result.error, "error");
-          showToast("Deployment failed.", "error");
+          appendLog("Deployment failed: " + result.error, "error");
+          setStatus("Failed: " + result.error, "error");
+          showToast("Deployment failed: " + result.error, "error");
           return;
         }
 
-        appendLog("Deployment complete! 🎉", "success");
+        appendLog("Deployment complete! Container is live on port 80 🎉", "success");
         setStatus("Deployment successful!", "success");
         showToast("App deployed successfully!", "success");
 
-        // Build result card HTML
-        let cardHtml = "";
+        const liveUrl = result.url || (result.app_id ? `http://${result.url}` : "");
 
+        let cardHtml = "";
         if (result.app_id) {
-          cardHtml += `<div class="result-meta"><span style="color:var(--ink-2);">App ID</span> ${escHtml(result.app_id)}</div>`;
+          cardHtml += `<div class="result-meta"><span style="color:var(--ink-2);">App ID</span> <code>${escHtml(result.app_id)}</code></div>`;
         }
         if (result.instance_id) {
-          cardHtml += `<div class="result-meta"><span style="color:var(--ink-2);">Instance</span> ${escHtml(result.instance_id)}</div>`;
+          cardHtml += `<div class="result-meta"><span style="color:var(--ink-2);">EC2 Instance</span> <code>${escHtml(result.instance_id)}</code></div>`;
+        }
+        if (result.app_type) {
+          cardHtml += `<div class="result-meta"><span style="color:var(--ink-2);">Runtime</span> <span class="badge badge-purple">${escHtml(result.app_type.toUpperCase())}</span></div>`;
         }
 
-        const links = [];
-        if (result.frontend_url) {
-          appendLog("Frontend: " + result.frontend_url, "success");
-          links.push({ label: "Frontend", url: result.frontend_url });
-        }
-        if (result.backend_url) {
-          appendLog("Backend:  " + result.backend_url, "success");
-          links.push({ label: "Backend", url: result.backend_url });
-        }
-        if (links.length === 0 && result.url) {
-          appendLog("URL: " + result.url, "success");
-          links.push({ label: "App", url: result.url });
-        }
-
-        links.forEach(({ label, url }) => {
+        if (liveUrl) {
+          appendLog("Live App URL: " + liveUrl, "success");
           cardHtml += `
-            <div class="result-link-row">
-              <span class="result-link-label">${label}</span>
-              <a class="result-link-url" href="${url}" target="_blank" rel="noopener noreferrer">${escHtml(url)}</a>
+            <div class="result-link-row" style="margin-top:14px;">
+              <span class="result-link-label">Live App (Port 80)</span>
+              <a class="result-link-url" href="${liveUrl}" target="_blank" rel="noopener noreferrer">${escHtml(liveUrl)}</a>
             </div>`;
-        });
-
-        if (links.length === 0) {
-          cardHtml += `<div class="result-meta" style="color:var(--ink-3);">No public URL returned. Check the dashboard.</div>`;
+        } else {
+          cardHtml += `<div class="result-meta" style="color:var(--ink-3);margin-top:10px;">Check the Dashboard to see your live instance.</div>`;
         }
 
         showResultCard(cardHtml);
@@ -447,68 +455,51 @@ function startPolling(taskId) {
         _deployInProgress = false;
         setDeployButtonState(false);
         removeLogCursor();
-        appendLog("Worker task failed.", "error");
+        appendLog("Worker process terminated with failure.", "error");
         setStatus("Deployment failed — worker error.", "error");
         showToast("Deployment failed on worker.", "error");
       }
 
     } catch (_) {
-      // Network hiccup during polling — just skip this tick
+      // transient network hiccup
     }
   }, 2000);
 }
 
-// ── Fill example ───────────────────────────────────────────────────
+// ── Load Example Helper ────────────────────────────────────────────
 function fillExample() {
-  const repoEl = document.getElementById("repo");
-  const keyEl = document.getElementById("aws_key");
+  const repoEl   = document.getElementById("repo");
+  const keyEl    = document.getElementById("aws_key");
   const secretEl = document.getElementById("aws_secret");
-  const portEl = document.getElementById("backend_port");
-  const backendEl = document.getElementById("backend_dockerfile");
-  const frontEl = document.getElementById("frontend_dockerfile");
+  const envEl    = document.getElementById("env_vars");
 
-  if (repoEl && !repoEl.value) repoEl.value = "https://github.com/user/my-app";
-  if (keyEl && !keyEl.value) keyEl.value = "AKIAIOSFODNN7EXAMPLE";
+  if (repoEl   && !repoEl.value)   repoEl.value   = "https://github.com/tiangolo/fastapi";
+  if (keyEl    && !keyEl.value)    keyEl.value    = "AKIAIOSFODNN7EXAMPLE";
   if (secretEl && !secretEl.value) secretEl.value = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-  if (portEl && !portEl.value) portEl.value = "8000";
 
-  if (backendEl && !backendEl.value) {
-    backendEl.value =
-      `FROM python:3.11-slim
-WORKDIR /app
-COPY . /app
-RUN pip install -r requirements.txt
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]`;
-  }
+  selectAppType("python");
 
-  if (frontEl && !frontEl.value) {
-    frontEl.value =
-      `FROM nginx:alpine
-COPY . /usr/share/nginx/html
-EXPOSE 80`;
-  }
-
-  // Expand both sections so example data is visible
-  ["backend", "frontend"].forEach(name => {
-    const sec = document.getElementById("section-" + name);
-    const tog = document.getElementById("toggle-" + name);
+  if (envEl && !envEl.value) {
+    envEl.value = "PORT=80\nDEBUG=False\nENVIRONMENT=production";
+    const sec = document.getElementById("section-env");
+    const tog = document.getElementById("toggle-env");
     if (sec && !sec.classList.contains("open")) {
       sec.classList.add("open");
-      tog && tog.classList.add("open");
+      if (tog) tog.classList.add("open");
     }
-  });
+  }
 
-  showToast("Example data loaded.", "info");
+  showToast("Example Python app loaded.", "info");
 }
 
-// ── Clear form ─────────────────────────────────────────────────────
+// ── Clear Form ─────────────────────────────────────────────────────
 function clearForm() {
-  ["repo", "aws_key", "aws_secret", "backend_port", "backend_dockerfile", "frontend_dockerfile"].forEach(id => {
+  ["repo", "aws_key", "aws_secret", "custom_dockerfile", "env_vars"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
 
+  selectAppType("python");
   setStatus("Ready when you are", "");
   hideResultCard();
   hideTerminal();
@@ -524,13 +515,21 @@ function clearForm() {
   showToast("Form cleared.", "info");
 }
 
-// ── Restore credentials on page load ──────────────────────────────
-// If the user reloads the page mid-session, pre-fill credentials
-// from sessionStorage so they don't have to type them again.
-(function restoreCredentials() {
+// ── Initial Setup on Page Load ─────────────────────────────────────
+function bootApp() {
+  initTheme();
+  selectAppType("python");
+
+  // Restore stored session credentials if available
   const { key, secret } = getStoredCredentials();
-  const keyEl = document.getElementById("aws_key");
+  const keyEl    = document.getElementById("aws_key");
   const secretEl = document.getElementById("aws_secret");
-  if (keyEl && key && !keyEl.value) keyEl.value = key;
+  if (keyEl    && key    && !keyEl.value)    keyEl.value    = key;
   if (secretEl && secret && !secretEl.value) secretEl.value = secret;
-})();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootApp);
+} else {
+  bootApp();
+}
