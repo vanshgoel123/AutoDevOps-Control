@@ -9,7 +9,7 @@ services:
     working_dir: /app/backend
 
     ports:
-      - "127.0.0.1:5000:8000"
+      - "5000:8000"
 
     env_file:
       - .env
