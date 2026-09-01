@@ -4,6 +4,8 @@ This phase lets you deploy a Dockerized GitHub repository to EC2 from a FastAPI 
 
 🚀 **Live Demo:** https://autodevops.vanshgoel.tech/
 
+<img width="2367" height="1128" alt="image" src="https://github.com/user-attachments/assets/6fee7151-8c4c-484d-ac4b-26317b50e71c" />
+
 ## What it does
 
 - Accepts a public GitHub repo URL
@@ -25,9 +27,6 @@ This phase lets you deploy a Dockerized GitHub repository to EC2 from a FastAPI 
    `docker compose up --build`
 
 4. Open the app:
-
-   - Home: `https://deploy.13-207-132-171.sslip.io:8000`
-   - Dashboard: `https://deploy.13-207-132-171.sslip.io:8000/dashboard`
 
 ## Frontend usage
 
