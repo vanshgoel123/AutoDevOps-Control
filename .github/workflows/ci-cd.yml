@@ -98,6 +98,10 @@ jobs:
         run: |
           docker compose build
 
+      - name: Ensure proxy network exists
+        run: |
+          docker network create autodevops-proxy_default 2>/dev/null || true
+
       - name: Docker Compose — start services
         run: |
           docker compose up -d
