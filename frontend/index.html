@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,8 @@
   <meta name="description" content="Deploy any GitHub repo to AWS EC2 in minutes. Paste your Dockerfiles, hit deploy.">
   <title>AutoDevOps — Ship Without Friction</title>
   <link rel="stylesheet" href="/static/style.css?v=3">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
   <script>
     function getStoredTheme() {
       var saved = localStorage.getItem('adops-theme');
@@ -29,11 +31,12 @@
     }
     // Execute immediately to prevent flash
     document.documentElement.setAttribute('data-theme', getStoredTheme());
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       applyTheme(getStoredTheme());
     });
   </script>
 </head>
+
 <body>
   <div class="glow-blob glow-blob-1"></div>
   <div class="glow-blob glow-blob-2"></div>
@@ -47,7 +50,8 @@
         <span class="nav-logo-text">AutoDevOps</span>
       </a>
       <div class="nav-actions">
-        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">☀️</button>
+        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode"
+          aria-label="Toggle theme">☀️</button>
         <a class="btn btn-ghost btn-sm" href="/dashboard">Dashboard →</a>
       </div>
     </nav>
@@ -109,7 +113,11 @@
           <!-- Step 1 -->
           <div class="lp-wf-step">
             <div class="lp-wf-icon" style="background:var(--purple-dim);border-color:rgba(139,92,246,0.3);">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                  d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+              </svg>
             </div>
             <div class="lp-wf-num">01</div>
             <div class="lp-wf-title">Connect Repo</div>
@@ -118,13 +126,20 @@
 
           <!-- Arrow -->
           <div class="lp-wf-arrow">
-            <svg width="32" height="16" viewBox="0 0 32 16" fill="none"><path d="M0 8h28M22 2l8 6-8 6" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
+              <path d="M0 8h28M22 2l8 6-8 6" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
           </div>
 
           <!-- Step 2 -->
           <div class="lp-wf-step">
             <div class="lp-wf-icon" style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
             </div>
             <div class="lp-wf-num">02</div>
             <div class="lp-wf-title">Add AWS Keys &amp; Dockerfiles</div>
@@ -133,17 +148,24 @@
 
           <!-- Arrow -->
           <div class="lp-wf-arrow">
-            <svg width="32" height="16" viewBox="0 0 32 16" fill="none"><path d="M0 8h28M22 2l8 6-8 6" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
+              <path d="M0 8h28M22 2l8 6-8 6" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
           </div>
 
           <!-- Step 3 -->
           <div class="lp-wf-step">
             <div class="lp-wf-icon" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#86efac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#86efac" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
             </div>
             <div class="lp-wf-num">03</div>
             <div class="lp-wf-title">Get Live URLs</div>
-            <div class="lp-wf-desc">Watch real-time logs as EC2 spins up. Frontend &amp; backend URLs appear when ready.</div>
+            <div class="lp-wf-desc">Watch real-time logs as EC2 spins up. Frontend &amp; backend URLs appear when ready.
+            </div>
           </div>
         </div>
       </div>
@@ -166,7 +188,8 @@
             </div>
             <div class="field">
               <label for="repo">GitHub URL</label>
-              <input id="repo" type="url" placeholder="https://github.com/user/repo" autocomplete="off" spellcheck="false" inputmode="url">
+              <input id="repo" type="url" placeholder="https://github.com/user/repo" autocomplete="off"
+                spellcheck="false" inputmode="url">
               <span class="field-hint">⚠ Only public GitHub repositories are supported.</span>
             </div>
           </div>
@@ -187,10 +210,12 @@
               </div>
               <div class="field">
                 <label for="aws_secret">Secret Access Key</label>
-                <input id="aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password" spellcheck="false">
+                <input id="aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password"
+                  spellcheck="false">
               </div>
             </div>
-            <div class="field-hint" style="margin-top:8px;">🛡 Sent directly to your AWS account for this deploy only. Download after deploying to avoid re-entering.</div>
+            <div class="field-hint" style="margin-top:8px;">🛡 Sent directly to your AWS account for this deploy only.
+              Download after deploying to avoid re-entering.</div>
           </div>
 
           <div class="deploy-divider"></div>
@@ -216,12 +241,14 @@
                 <div class="deploy-service-body">
                   <div class="field">
                     <label for="backend_port">Backend Port</label>
-                    <input id="backend_port" inputmode="numeric" pattern="[0-9]*" placeholder="8000" style="max-width:160px;">
+                    <input id="backend_port" inputmode="numeric" pattern="[0-9]*" placeholder="8000"
+                      style="max-width:160px;">
                     <span class="field-hint">Port your container exposes.</span>
                   </div>
                   <div class="field">
                     <label for="backend_dockerfile">Backend Dockerfile</label>
-                    <textarea id="backend_dockerfile" placeholder="FROM python:3.11-slim&#10;WORKDIR /app&#10;COPY . /app&#10;RUN pip install -r requirements.txt&#10;EXPOSE 8000&#10;CMD [&quot;uvicorn&quot;, &quot;main:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;]"></textarea>
+                    <textarea id="backend_dockerfile"
+                      placeholder="FROM python:3.11-slim&#10;WORKDIR /app&#10;COPY . /app&#10;RUN pip install -r requirements.txt&#10;EXPOSE 8000&#10;CMD [&quot;uvicorn&quot;, &quot;main:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;]"></textarea>
                   </div>
                 </div>
               </div>
@@ -249,7 +276,8 @@
                 <div class="deploy-service-body">
                   <div class="field">
                     <label for="frontend_dockerfile">Frontend Dockerfile</label>
-                    <textarea id="frontend_dockerfile" placeholder="FROM nginx:alpine&#10;COPY . /usr/share/nginx/html&#10;EXPOSE 80"></textarea>
+                    <textarea id="frontend_dockerfile"
+                      placeholder="FROM nginx:alpine&#10;COPY . /usr/share/nginx/html&#10;EXPOSE 80"></textarea>
                     <span class="field-hint">Frontend always runs on port 80.</span>
                   </div>
                 </div>
@@ -276,7 +304,8 @@
         </div>
 
         <!-- Log terminal -->
-        <div class="log-terminal" id="log_terminal" style="margin-top:20px;max-width:860px;margin-left:auto;margin-right:auto;">
+        <div class="log-terminal" id="log_terminal"
+          style="margin-top:20px;max-width:860px;margin-left:auto;margin-right:auto;">
           <div class="log-terminal-titlebar">
             <span class="log-dot log-dot-red"></span>
             <span class="log-dot log-dot-yellow"></span>
@@ -287,11 +316,13 @@
         </div>
 
         <!-- Result card -->
-        <div class="result-card" id="result_card" style="margin-top:20px;max-width:860px;margin-left:auto;margin-right:auto;">
+        <div class="result-card" id="result_card"
+          style="margin-top:20px;max-width:860px;margin-left:auto;margin-right:auto;">
           <div class="result-card-header">
             <span>✅</span>
             <span>Deployment successful</span>
-            <button class="btn btn-ghost btn-sm" onclick="downloadCredentials()" style="margin-left:auto;" title="Save AWS credentials locally">⬇ Save credentials</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadCredentials()" style="margin-left:auto;"
+              title="Save AWS credentials locally">⬇ Save credentials</button>
           </div>
           <div class="result-card-body" id="result_body"></div>
         </div>
@@ -309,17 +340,20 @@
           <div class="lp-check-item">
             <div class="lp-check-icon" style="background:var(--purple-dim);">📋</div>
             <div class="lp-check-title">Pre-flight</div>
-            <div class="lp-check-desc">Repo must be public. Dockerfile must be committed. AWS credentials need EC2 launch permissions (AmazonEC2FullAccess).</div>
+            <div class="lp-check-desc">Repo must be public. Dockerfile must be committed. AWS credentials need EC2
+              launch permissions (AmazonEC2FullAccess).</div>
           </div>
           <div class="lp-check-item">
             <div class="lp-check-icon" style="background:var(--blue-dim);">📡</div>
             <div class="lp-check-title">During deploy</div>
-            <div class="lp-check-desc">The live log shows each step — EC2 instance creation, git clone, Docker build, and container start.</div>
+            <div class="lp-check-desc">The live log shows each step — EC2 instance creation, git clone, Docker build,
+              and container start.</div>
           </div>
           <div class="lp-check-item">
             <div class="lp-check-icon" style="background:var(--green-dim);">🔗</div>
             <div class="lp-check-title">After deploy</div>
-            <div class="lp-check-desc">Open the Dashboard to see all running apps. Terminate instances when done to stop AWS charges.</div>
+            <div class="lp-check-desc">Open the Dashboard to see all running apps. Terminate instances when done to stop
+              AWS charges.</div>
           </div>
         </div>
       </div>
@@ -336,4 +370,5 @@
   <input id="frontend_port" type="hidden" value="80">
   <script src="/static/script.js?v=3"></script>
 </body>
+
 </html>

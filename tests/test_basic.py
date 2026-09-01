@@ -69,25 +69,32 @@ class TestModels:
 class TestDeployValidation:
     """Test deploy request validation rules (mirrors FastAPI endpoint logic)."""
 
-    def test_requires_at_least_one_dockerfile(self):
-        backend_df = ""
-        frontend_df = ""
-        assert not backend_df and not frontend_df  # should reject
+    def test_app_type_validation(self):
+        valid_types = ("python", "nodejs", "custom")
+        assert "python" in valid_types
+        assert "nodejs" in valid_types
+        assert "custom" in valid_types
+        assert "invalid" not in valid_types
 
-    def test_backend_requires_port(self):
-        backend_df = "FROM python:3.11-slim"
-        backend_port = None
-        # If backend dockerfile provided, port must not be None
-        assert backend_df and backend_port is None  # should reject
+    def test_custom_app_type_requires_dockerfile(self):
+        app_type = "custom"
+        custom_dockerfile = ""
+        # Custom type without Dockerfile must fail
+        assert app_type == "custom" and not (custom_dockerfile or "").strip()
 
-    def test_valid_backend_config(self):
-        backend_df = "FROM python:3.11-slim\nEXPOSE 8000"
-        backend_port = 8000
-        assert backend_df and backend_port is not None  # should pass
+    def test_python_auto_dockerfile_uses_port_80(self):
+        pytest.importorskip("celery", reason="celery not installed")
+        from tasks import generate_dockerfile
+        df = generate_dockerfile("python")
+        assert "EXPOSE 80" in df
+        assert "PORT=80" in df
 
-    def test_frontend_always_port_80(self):
-        frontend_port = 80
-        assert frontend_port == 80
+    def test_nodejs_auto_dockerfile_uses_port_80(self):
+        pytest.importorskip("celery", reason="celery not installed")
+        from tasks import generate_dockerfile
+        df = generate_dockerfile("nodejs")
+        assert "EXPOSE 80" in df
+        assert "PORT=80" in df
 
     def test_github_url_validation(self):
         valid = "https://github.com/user/repo"

@@ -10,21 +10,21 @@
 
 // ── State ──────────────────────────────────────────────────────────
 let _deployInProgress = false;
-let _pollInterval     = null;
-let _lastTaskId       = null;
+let _pollInterval = null;
+let _lastTaskId = null;
 
 // ── Theme ──────────────────────────────────────────────────────────
 function initTheme() {
-  const saved     = localStorage.getItem("adops-theme");
+  const saved = localStorage.getItem("adops-theme");
   const preferred = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  const theme     = saved || preferred;
+  const theme = saved || preferred;
   document.documentElement.setAttribute("data-theme", theme);
   _updateThemeIcon(theme);
 }
 
 function toggleTheme() {
   const current = document.documentElement.getAttribute("data-theme") || "dark";
-  const next    = current === "dark" ? "light" : "dark";
+  const next = current === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("adops-theme", next);
   _updateThemeIcon(next);
@@ -44,7 +44,7 @@ initTheme();
 // ── Section toggles ────────────────────────────────────────────────
 function toggleSection(name) {
   const content = document.getElementById("section-" + name);
-  const toggle  = document.getElementById("toggle-" + name);
+  const toggle = document.getElementById("toggle-" + name);
   if (!content || !toggle) return;
 
   const isOpen = content.classList.contains("open");
@@ -69,7 +69,7 @@ function showToast(msg, type = "info") {
 
 // ── Status bar helpers ─────────────────────────────────────────────
 function setStatus(text, state = "") {
-  const bar  = document.getElementById("status_bar");
+  const bar = document.getElementById("status_bar");
   const span = document.getElementById("status_text");
   if (!bar || !span) return;
 
@@ -165,18 +165,18 @@ function hideResultCard() {
 // and /delete. The backend does NOT persist them in the database.
 function storeCredentials(key, secret) {
   try {
-    sessionStorage.setItem("_adops_key",    key);
+    sessionStorage.setItem("_adops_key", key);
     sessionStorage.setItem("_adops_secret", secret);
     // Also store in localStorage so dashboard can find them
     // after page navigation within the same browser session.
-    localStorage.setItem("aws_key",    key);
+    localStorage.setItem("aws_key", key);
     localStorage.setItem("aws_secret", secret);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function getStoredCredentials() {
   return {
-    key:    sessionStorage.getItem("_adops_key")    || localStorage.getItem("aws_key")    || "",
+    key: sessionStorage.getItem("_adops_key") || localStorage.getItem("aws_key") || "",
     secret: sessionStorage.getItem("_adops_secret") || localStorage.getItem("aws_secret") || "",
   };
 }
@@ -185,10 +185,10 @@ function getStoredCredentials() {
 // Gives the user a .env file with their credentials so they don't
 // have to re-enter them every time they come back.
 function downloadCredentials() {
-  const awsKeyInput    = document.getElementById("aws_key");
+  const awsKeyInput = document.getElementById("aws_key");
   const awsSecretInput = document.getElementById("aws_secret");
 
-  const key    = (awsKeyInput    ? awsKeyInput.value.trim()    : "") || getStoredCredentials().key;
+  const key = (awsKeyInput ? awsKeyInput.value.trim() : "") || getStoredCredentials().key;
   const secret = (awsSecretInput ? awsSecretInput.value.trim() : "") || getStoredCredentials().secret;
 
   if (!key || !secret) {
@@ -205,9 +205,9 @@ function downloadCredentials() {
   ].join("\n");
 
   const blob = new Blob([content], { type: "text/plain" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
   a.download = "aws_credentials.env";
   document.body.appendChild(a);
   a.click();
@@ -225,12 +225,12 @@ async function deploy() {
   }
 
   // Collect inputs
-  const repo        = (document.getElementById("repo")?.value || "").trim();
-  const awsKey      = (document.getElementById("aws_key")?.value || "").trim();
-  const awsSecret   = (document.getElementById("aws_secret")?.value || "").trim();
+  const repo = (document.getElementById("repo")?.value || "").trim();
+  const awsKey = (document.getElementById("aws_key")?.value || "").trim();
+  const awsSecret = (document.getElementById("aws_secret")?.value || "").trim();
   const backendPort = (document.getElementById("backend_port")?.value || "").trim();
-  const backendDf   = (document.getElementById("backend_dockerfile")?.value || "").trim();
-  const frontendDf  = (document.getElementById("frontend_dockerfile")?.value || "").trim();
+  const backendDf = (document.getElementById("backend_dockerfile")?.value || "").trim();
+  const frontendDf = (document.getElementById("frontend_dockerfile")?.value || "").trim();
 
   // ── Validation ────────────────────────────────────────────────
   if (!repo) {
@@ -275,7 +275,7 @@ async function deploy() {
   }
 
   const backendPortNum = backendPort ? Number(backendPort) : null;
-  const frontendPort   = frontendDf ? 80 : null;
+  const frontendPort = frontendDf ? 80 : null;
 
   // ── Persist credentials ───────────────────────────────────────
   storeCredentials(awsKey, awsSecret);
@@ -289,7 +289,7 @@ async function deploy() {
   setStatus("Queuing deployment…", "active");
   appendLog("Validating inputs…", "info");
   appendLog(`Repo: ${repo}`, "");
-  if (backendDf)  appendLog(`Backend port: ${backendPortNum}`, "");
+  if (backendDf) appendLog(`Backend port: ${backendPortNum}`, "");
   if (frontendDf) appendLog("Frontend port: 80", "");
   appendLog("Sending to worker…", "info");
   appendLogCursor();
@@ -299,12 +299,12 @@ async function deploy() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        repo_url:            repo,
-        aws_key:             awsKey,
-        aws_secret:          awsSecret,
-        backend_port:        backendPortNum,
-        frontend_port:       frontendPort,
-        backend_dockerfile:  backendDf  || null,
+        repo_url: repo,
+        aws_key: awsKey,
+        aws_secret: awsSecret,
+        backend_port: backendPortNum,
+        frontend_port: frontendPort,
+        backend_dockerfile: backendDf || null,
         frontend_dockerfile: frontendDf || null,
       }),
     });
@@ -360,12 +360,12 @@ function startPolling(taskId) {
     }
 
     try {
-      const res  = await fetch("/status/" + taskId);
+      const res = await fetch("/status/" + taskId);
       if (!res.ok) return; // transient error, keep polling
 
       const data = await res.json();
       const state = data.state || "";
-      const meta  = data.meta  || {};
+      const meta = data.meta || {};
 
       // Update log with step info from worker metadata
       if (meta.step) {
@@ -460,21 +460,21 @@ function startPolling(taskId) {
 
 // ── Fill example ───────────────────────────────────────────────────
 function fillExample() {
-  const repoEl    = document.getElementById("repo");
-  const keyEl     = document.getElementById("aws_key");
-  const secretEl  = document.getElementById("aws_secret");
-  const portEl    = document.getElementById("backend_port");
+  const repoEl = document.getElementById("repo");
+  const keyEl = document.getElementById("aws_key");
+  const secretEl = document.getElementById("aws_secret");
+  const portEl = document.getElementById("backend_port");
   const backendEl = document.getElementById("backend_dockerfile");
-  const frontEl   = document.getElementById("frontend_dockerfile");
+  const frontEl = document.getElementById("frontend_dockerfile");
 
-  if (repoEl    && !repoEl.value)    repoEl.value    = "https://github.com/user/my-app";
-  if (keyEl     && !keyEl.value)     keyEl.value     = "AKIAIOSFODNN7EXAMPLE";
-  if (secretEl  && !secretEl.value)  secretEl.value  = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-  if (portEl    && !portEl.value)    portEl.value    = "8000";
+  if (repoEl && !repoEl.value) repoEl.value = "https://github.com/user/my-app";
+  if (keyEl && !keyEl.value) keyEl.value = "AKIAIOSFODNN7EXAMPLE";
+  if (secretEl && !secretEl.value) secretEl.value = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+  if (portEl && !portEl.value) portEl.value = "8000";
 
   if (backendEl && !backendEl.value) {
     backendEl.value =
-`FROM python:3.11-slim
+      `FROM python:3.11-slim
 WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
@@ -484,7 +484,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]`;
 
   if (frontEl && !frontEl.value) {
     frontEl.value =
-`FROM nginx:alpine
+      `FROM nginx:alpine
 COPY . /usr/share/nginx/html
 EXPOSE 80`;
   }
@@ -529,8 +529,8 @@ function clearForm() {
 // from sessionStorage so they don't have to type them again.
 (function restoreCredentials() {
   const { key, secret } = getStoredCredentials();
-  const keyEl    = document.getElementById("aws_key");
+  const keyEl = document.getElementById("aws_key");
   const secretEl = document.getElementById("aws_secret");
-  if (keyEl    && key    && !keyEl.value)    keyEl.value    = key;
+  if (keyEl && key && !keyEl.value) keyEl.value = key;
   if (secretEl && secret && !secretEl.value) secretEl.value = secret;
 })();

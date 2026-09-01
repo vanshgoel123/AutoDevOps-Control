@@ -1,21 +1,35 @@
-# Environments
+# Environments & Secrets
 .env
-.venv/
-venv/
-ENV/
+.env.*
+*.env
+*.pem
+*.key
 
-# Python cache
+# Python & testing cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .pytest_cache/
+.coverage
+htmlcov/
 
 # Database
 database/*.sqlite3
 database/*.db
 
-# OS / IDE
+# Logs & temp files
+*.log
+scratch/
+temp/
+
+# IDE & OS
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
+
+# Internal plans & notes
+implementation_plan.md
+task.md
+walkthrough.md
