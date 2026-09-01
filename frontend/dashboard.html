@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +8,14 @@
   <title>Dashboard — AutoDevOps</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
+  <script>
+    // Inline theme init to avoid flash of wrong theme
+    (function() {
+      var saved = localStorage.getItem('adops-theme');
+      var preferred = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', saved || preferred);
+    })();
+  </script>
 </head>
 <body>
   <div class="glow-blob glow-blob-1"></div>
@@ -21,6 +29,7 @@
         <span class="nav-logo-text">AutoDevOps</span>
       </a>
       <div class="nav-actions">
+        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="loadApps()" id="refresh_btn">↺ Refresh</button>
         <a class="btn btn-primary btn-sm" href="/">+ New Deploy</a>
       </div>
@@ -43,7 +52,7 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <!-- AWS creds needed for terminate — prompt inline if missing -->
           <div id="creds_warning" style="display:none;">
-            <span style="font-size:0.8rem;color:#fcd34d;">⚠ Enter AWS credentials to enable terminate</span>
+            <span style="font-size:0.8rem;color:var(--amber);">⚠ Enter AWS credentials to enable terminate</span>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="showCredsModal()" id="creds_btn" title="Set AWS credentials for this session">🔑 Set credentials</button>
         </div>
@@ -74,12 +83,12 @@
 
     </div><!-- /container-wide -->
 
-    <!-- Credentials modal (inline overlay) -->
-    <div id="creds_modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px;">
-      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-xl);padding:24px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.6);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <!-- Credentials modal -->
+    <div id="creds_modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+      <div class="creds-modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
           <div>
-            <div style="font-size:1rem;font-weight:700;color:var(--ink);">AWS Credentials</div>
+            <div style="font-size:1rem;font-weight:700;color:var(--ink);">🔑 AWS Credentials</div>
             <div style="font-size:0.8rem;color:var(--ink-3);margin-top:2px;">Needed to terminate EC2 instances</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="hideCredsModal()" style="padding:6px 10px;">✕</button>
@@ -88,7 +97,7 @@
           <label for="modal_aws_key">Access Key ID</label>
           <input id="modal_aws_key" type="text" placeholder="AKIA…" autocomplete="off" spellcheck="false">
         </div>
-        <div class="field" style="margin-bottom:18px;">
+        <div class="field" style="margin-bottom:20px;">
           <label for="modal_aws_secret">Secret Access Key</label>
           <input id="modal_aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password">
         </div>
@@ -96,12 +105,12 @@
           <button class="btn btn-primary btn-full" onclick="saveModalCreds()">Save for session</button>
           <button class="btn btn-ghost" onclick="hideCredsModal()">Cancel</button>
         </div>
-        <p style="font-size:0.75rem;color:var(--ink-3);margin-top:12px;line-height:1.5;">Credentials are stored in your browser's session memory only. They are cleared when you close this tab.</p>
+        <p style="font-size:0.75rem;color:var(--ink-3);margin-top:14px;line-height:1.5;">Credentials are stored in your browser's session memory only. They are cleared when you close this tab.</p>
       </div>
     </div>
 
     <footer class="footer">
-      AutoDevOps — <a href="/" style="color:var(--ink-2);">Deploy a new app</a>
+      AutoDevOps — <a href="/">Deploy a new app</a>
     </footer>
   </div>
 
@@ -109,6 +118,27 @@
   <div class="toast-container" id="toast_container"></div>
 
   <script>
+    // ── Theme ──────────────────────────────────────────────────────
+    function initTheme() {
+      var saved = localStorage.getItem('adops-theme');
+      var preferred = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      var theme = saved || preferred;
+      document.documentElement.setAttribute('data-theme', theme);
+      var btn = document.getElementById('theme_toggle_btn');
+      if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+    }
+
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('adops-theme', next);
+      var btn = document.getElementById('theme_toggle_btn');
+      if (btn) btn.textContent = next === 'light' ? '🌙' : '☀️';
+    }
+
+    initTheme();
+
     // ── Session credentials (never leave the browser) ─────────────
     let _sessionKey    = sessionStorage.getItem("_adops_key")    || "";
     let _sessionSecret = sessionStorage.getItem("_adops_secret") || "";
@@ -218,7 +248,7 @@
                </div>`;
 
           return `
-          <div class="app-card" style="animation-delay:${i * 50}ms">
+          <div class="app-card" style="animation-delay:${i * 60}ms">
             <div class="app-card-top">
               <div class="app-card-info">
                 <div class="app-card-repo">${escHtml(repo)}</div>
@@ -230,7 +260,7 @@
               </span>
             </div>
             ${urlSection}
-            ${instanceId ? `<div style="font-size:0.72rem;color:var(--ink-3);font-family:var(--font-mono);">Instance: ${escHtml(instanceId)}</div>` : ""}
+            ${instanceId ? `<div style="font-size:0.72rem;color:var(--ink-3);font-family:'JetBrains Mono',monospace;">Instance: ${escHtml(instanceId)}</div>` : ""}
             <div class="app-card-footer">
               ${url ? `<a class="btn btn-ghost btn-sm" href="${url}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}
               <button

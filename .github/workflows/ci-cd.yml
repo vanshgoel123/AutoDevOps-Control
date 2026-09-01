@@ -1,0 +1,117 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 1: Lint  (flake8)
+  # ─────────────────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Lint
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Run flake8
+        run: |
+          flake8 backend/ \
+            --max-line-length=120 \
+            --ignore=E501,W503,E402 \
+            --exclude=__pycache__,*.pyc \
+            --statistics \
+            --count
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 2: Test  (pytest) — runs after lint passes
+  # ─────────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Test
+    runs-on: self-hosted
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 3: Deploy — docker compose down → build → up
+  #         Runs only after lint + test pass, and only on main branch
+  # ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy
+    runs-on: self-hosted
+    needs: [ lint, test ]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Verify .env file exists on runner
+        run: |
+          if [ -f .env ]; then
+            echo "✅ Found existing .env file on VM."
+          elif [ -f ../.env ]; then
+            cp ../.env .env
+            echo "✅ Copied .env from parent directory."
+          elif [ -f "$HOME/.env" ]; then
+            cp "$HOME/.env" .env
+            echo "✅ Copied .env from home directory."
+          else
+            echo "⚠️ No .env file found. Creating default from .env.example..."
+            cp .env.example .env
+          fi
+
+      - name: Docker Compose — bring down
+        run: |
+          docker compose down
+        continue-on-error: true
+
+      - name: Docker Compose — build fresh images
+        run: |
+          docker compose build
+
+      - name: Docker Compose — start services
+        run: |
+          docker compose up -d
+
+      - name: Verify services are running
+        run: |
+          echo "=== Running containers ==="
+          docker compose ps
+          echo ""
+          echo "=== Waiting for web service to be healthy ==="
+          sleep 5
+          docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"

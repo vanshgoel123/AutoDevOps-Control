@@ -1,8 +1,9 @@
 /* ─────────────────────────────────────────────────────────────────
    AutoDevOps — script.js
-   Handles: deploy form, real-time status polling, log terminal,
-            credential storage (session only), credential download,
-            section toggles, form helpers, toast notifications.
+   Handles: theme toggle, deploy form, real-time status polling,
+            log terminal, credential storage (session only),
+            credential download, section toggles, form helpers,
+            toast notifications.
 ───────────────────────────────────────────────────────────────── */
 
 "use strict";
@@ -11,6 +12,34 @@
 let _deployInProgress = false;
 let _pollInterval     = null;
 let _lastTaskId       = null;
+
+// ── Theme ──────────────────────────────────────────────────────────
+function initTheme() {
+  const saved     = localStorage.getItem("adops-theme");
+  const preferred = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  const theme     = saved || preferred;
+  document.documentElement.setAttribute("data-theme", theme);
+  _updateThemeIcon(theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const next    = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("adops-theme", next);
+  _updateThemeIcon(next);
+}
+
+function _updateThemeIcon(theme) {
+  const btn = document.getElementById("theme_toggle_btn");
+  if (btn) btn.textContent = theme === "light" ? "🌙" : "☀️";
+  // Also update meta theme-color for mobile browsers
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "light" ? "#f5f6fa" : "#0b0d0f");
+}
+
+// Run immediately on load
+initTheme();
 
 // ── Section toggles ────────────────────────────────────────────────
 function toggleSection(name) {

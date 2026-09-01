@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +8,14 @@
   <title>AutoDevOps — Ship Without Friction</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
+  <script>
+    // Inline theme init to avoid flash of wrong theme
+    (function() {
+      var saved = localStorage.getItem('adops-theme');
+      var preferred = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', saved || preferred);
+    })();
+  </script>
 </head>
 <body>
   <div class="glow-blob glow-blob-1"></div>
@@ -15,13 +23,14 @@
 
   <div class="page-wrapper">
 
-    <!-- ── Nav ──────────────────────────────────────────────────── -->
+    <!-- ── Nav ────────────────────────────────────────────────────── -->
     <nav class="nav">
       <a class="nav-logo" href="/">
         <div class="nav-logo-icon">⚡</div>
         <span class="nav-logo-text">AutoDevOps</span>
       </a>
       <div class="nav-actions">
+        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">🌙</button>
         <a class="btn btn-ghost btn-sm" href="/dashboard">Dashboard →</a>
       </div>
     </nav>
@@ -44,7 +53,7 @@
       </p>
 
       <!-- Stats row -->
-      <div class="lp-stats">
+      <div class="lp-stats" style="margin-bottom:40px;">
         <div class="lp-stat">
           <div class="lp-stat-val">~3 min</div>
           <div class="lp-stat-lbl">Avg deploy time</div>
@@ -250,7 +259,7 @@
         </div>
 
         <!-- Log terminal -->
-        <div class="log-terminal" id="log_terminal" style="margin-top:16px;max-width:860px;margin-left:auto;margin-right:auto;">
+        <div class="log-terminal" id="log_terminal" style="margin-top:20px;max-width:860px;margin-left:auto;margin-right:auto;">
           <div class="log-terminal-titlebar">
             <span class="log-dot log-dot-red"></span>
             <span class="log-dot log-dot-yellow"></span>
@@ -261,7 +270,7 @@
         </div>
 
         <!-- Result card -->
-        <div class="result-card" id="result_card" style="margin-top:16px;max-width:860px;margin-left:auto;margin-right:auto;">
+        <div class="result-card" id="result_card" style="margin-top:20px;max-width:860px;margin-left:auto;margin-right:auto;">
           <div class="result-card-header">
             <span>✅</span>
             <span>Deployment successful</span>
@@ -301,7 +310,7 @@
 
     <footer class="footer">
       AutoDevOps — Deploying to your AWS account &middot;
-      <a href="/dashboard" style="color:var(--ink-2);">View Dashboard</a>
+      <a href="/dashboard">View Dashboard</a>
     </footer>
 
   </div><!-- /page-wrapper -->
