@@ -33,7 +33,7 @@ services:
 
     container_name: deploy-worker
 
-    command: celery -A worker.celery_app worker --loglevel=info
+    command: celery -A worker.celery_app worker --loglevel=info --concurrency=4
 
     working_dir: /app/backend
 

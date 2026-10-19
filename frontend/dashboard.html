@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b0d0f">
-  <meta name="description" content="Monitor and manage your live AWS EC2 deployments.">
-  <title>Dashboard AutoDevOps</title>
-  <link rel="stylesheet" href="/static/style.css?v=3">
+  <meta name="description" content="Monitor and manage your isolated AWS EC2 deployments securely.">
+  <title>Dashboard | AutoDevOps</title>
+  <link rel="stylesheet" href="/static/style.css?v=9">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
+  <script src="/static/auth.js"></script>
   <script>
     function getStoredTheme() {
       var saved = localStorage.getItem('adops-theme');
-      if (saved) return saved;
-      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+      return saved || 'dark';
     }
     function applyTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
@@ -27,7 +27,6 @@
       var next = (current === 'dark' ? 'light' : 'dark');
       applyTheme(next);
     }
-    // Execute immediately to prevent flash
     document.documentElement.setAttribute('data-theme', getStoredTheme());
     document.addEventListener('DOMContentLoaded', function() {
       applyTheme(getStoredTheme());
@@ -37,6 +36,8 @@
 <body>
   <div class="glow-blob glow-blob-1"></div>
   <div class="glow-blob glow-blob-2"></div>
+  <div class="glow-blob glow-blob-3"></div>
+  <div class="glow-blob glow-blob-4"></div>
 
   <div class="page-wrapper">
     <!-- Nav -->
@@ -57,21 +58,20 @@
 
       <!-- Header -->
       <div class="dashboard-header">
-        <h1>Deployments</h1>
-        <p>All apps deployed from your AWS account. Terminate instances when done to avoid charges.</p>
+        <h1>Your Deployments</h1>
+        <p>Isolated virtual machines deployed to your AWS account. Terminate instances when done to prevent unnecessary cloud costs.</p>
       </div>
 
       <!-- Toolbar -->
       <div class="dashboard-toolbar">
         <div class="dashboard-count">
-          <span id="app_count_label">Loading…</span>
+          <span id="app_count_label">Loading your deployments…</span>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <!-- AWS creds needed for terminate — prompt inline if missing -->
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <div id="creds_warning" style="display:none;">
-            <span style="font-size:0.8rem;color:var(--amber);">⚠ Enter AWS credentials to enable terminate</span>
+            <span style="font-size:0.8rem;color:var(--amber);">⚠️ AWS Vault key not configured</span>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="showCredsModal()" id="creds_btn" title="Set AWS credentials for this session">🔑 Set credentials</button>
+          <button class="btn btn-ghost btn-sm" onclick="openVaultModal()" id="creds_btn" title="Manage encrypted AWS credentials">🛡️ AWS Vault</button>
         </div>
       </div>
 
@@ -100,34 +100,8 @@
 
     </div><!-- /container-wide -->
 
-    <!-- Credentials modal -->
-    <div id="creds_modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
-      <div class="creds-modal-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <div>
-            <div style="font-size:1rem;font-weight:700;color:var(--ink);">🔑 AWS Credentials</div>
-            <div style="font-size:0.8rem;color:var(--ink-3);margin-top:2px;">Needed to terminate EC2 instances</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="hideCredsModal()" style="padding:6px 10px;">✕</button>
-        </div>
-        <div class="field" style="margin-bottom:12px;">
-          <label for="modal_aws_key">Access Key ID</label>
-          <input id="modal_aws_key" type="text" placeholder="AKIA…" autocomplete="off" spellcheck="false">
-        </div>
-        <div class="field" style="margin-bottom:20px;">
-          <label for="modal_aws_secret">Secret Access Key</label>
-          <input id="modal_aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password">
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary btn-full" onclick="saveModalCreds()">Save for session</button>
-          <button class="btn btn-ghost" onclick="hideCredsModal()">Cancel</button>
-        </div>
-        <p style="font-size:0.75rem;color:var(--ink-3);margin-top:14px;line-height:1.5;">Credentials are stored in your browser's session memory only. They are cleared when you close this tab.</p>
-      </div>
-    </div>
-
     <footer class="footer">
-      AutoDevOps — <a href="/">Deploy a new app</a>
+      AutoDevOps &middot; <a href="/">Deploy a new app</a>
     </footer>
   </div>
 
@@ -135,69 +109,6 @@
   <div class="toast-container" id="toast_container"></div>
 
   <script>
-    // ── Theme ──────────────────────────────────────────────────────
-    function initTheme() {
-      var saved = localStorage.getItem('adops-theme');
-      var preferred = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      var theme = saved || preferred;
-      document.documentElement.setAttribute('data-theme', theme);
-      var btn = document.getElementById('theme_toggle_btn');
-      if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
-    }
-
-    function toggleTheme() {
-      var current = document.documentElement.getAttribute('data-theme') || 'dark';
-      var next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('adops-theme', next);
-      var btn = document.getElementById('theme_toggle_btn');
-      if (btn) btn.textContent = next === 'light' ? '🌙' : '☀️';
-    }
-
-    initTheme();
-
-    // ── Session credentials (never leave the browser) ─────────────
-    let _sessionKey    = sessionStorage.getItem("_adops_key")    || "";
-    let _sessionSecret = sessionStorage.getItem("_adops_secret") || "";
-
-    function getCredentials() {
-      // Prefer sessionStorage (set via modal), fall back to localStorage (set during deploy on index page)
-      const key    = sessionStorage.getItem("_adops_key")    || localStorage.getItem("aws_key")    || "";
-      const secret = sessionStorage.getItem("_adops_secret") || localStorage.getItem("aws_secret") || "";
-      return { key, secret };
-    }
-
-    function showCredsModal() {
-      const modal = document.getElementById("creds_modal");
-      const { key, secret } = getCredentials();
-      document.getElementById("modal_aws_key").value    = key;
-      document.getElementById("modal_aws_secret").value = secret;
-      modal.style.display = "flex";
-    }
-
-    function hideCredsModal() {
-      document.getElementById("creds_modal").style.display = "none";
-    }
-
-    function saveModalCreds() {
-      const key    = document.getElementById("modal_aws_key").value.trim();
-      const secret = document.getElementById("modal_aws_secret").value.trim();
-      if (!key || !secret) {
-        showToast("Both fields are required.", "error");
-        return;
-      }
-      sessionStorage.setItem("_adops_key",    key);
-      sessionStorage.setItem("_adops_secret", secret);
-      hideCredsModal();
-      showToast("Credentials saved for this session.", "success");
-      document.getElementById("creds_warning").style.display = "none";
-    }
-
-    // Close modal on backdrop click
-    document.getElementById("creds_modal").addEventListener("click", function(e) {
-      if (e.target === this) hideCredsModal();
-    });
-
     // ── Toast ──────────────────────────────────────────────────────
     function showToast(msg, type = "info") {
       const container = document.getElementById("toast_container");
@@ -212,7 +123,21 @@
       }, 3500);
     }
 
-    // ── Load apps ──────────────────────────────────────────────────
+    // ── Check Vault Status for Toolbar ─────────────────────────────
+    async function updateVaultToolbar() {
+      const v = await getVaultStatus();
+      const warningEl = document.getElementById("creds_warning");
+      const credsBtn = document.getElementById("creds_btn");
+      if (v && v.configured && v.masked_key) {
+        if (warningEl) warningEl.style.display = "none";
+        if (credsBtn) credsBtn.innerHTML = `🛡️ Vault Active (${escHtml(v.masked_key)})`;
+      } else {
+        if (warningEl) warningEl.style.display = "block";
+        if (credsBtn) credsBtn.innerHTML = `🔑 Configure Vault`;
+      }
+    }
+
+    // ── Load User Apps (Strictly Multi-Tenant) ─────────────────────
     async function loadApps() {
       const grid = document.getElementById("apps_grid");
       const btn  = document.getElementById("refresh_btn");
@@ -220,7 +145,7 @@
       btn.textContent = "↺ Loading…";
 
       try {
-        const res  = await fetch("/apps");
+        const res  = await fetchWithAuth("/apps");
         if (!res.ok) throw new Error("Server error " + res.status);
         const data = await res.json();
         const apps = data.apps || [];
@@ -231,21 +156,53 @@
         if (apps.length === 0) {
           countLabel.innerHTML = "No deployments yet";
           grid.innerHTML = `
-            <div class="empty-state" style="grid-column:1/-1;">
-              <div class="empty-state-icon">📭</div>
-              <h3>No deployments found</h3>
-              <p>Head back to the home page and deploy your first app.</p>
-              <a class="btn btn-primary" href="/" style="margin-top:8px;">+ New Deploy</a>
+            <div class="empty-state-workspace" style="grid-column:1/-1;">
+              <div class="empty-hero">
+                <div class="empty-hero-badge"><span class="hero-badge-dot"></span> Ready to Deploy</div>
+                <h2 class="empty-hero-title">Launch Your First Cloud Service</h2>
+                <p class="empty-hero-sub">AutoDevOps provisions your EC2 instance, configures Security Groups with Port 80 ingress, and serves your live container in minutes.</p>
+              </div>
+
+              <div class="empty-starter-grid">
+                <a href="/#deploy" onclick="localStorage.setItem('preset_deploy','fastapi')" class="starter-card">
+                  <div class="starter-card-icon" style="background:rgba(139,92,246,0.18);border:1px solid rgba(139,92,246,0.35);">⚡</div>
+                  <div class="starter-card-body">
+                    <div class="starter-card-title">FastAPI Python 3.11</div>
+                    <div class="starter-card-desc">High performance ASGI REST API with auto requirements.txt install.</div>
+                    <span class="starter-card-cta">Deploy Template &rarr;</span>
+                  </div>
+                </a>
+
+                <a href="/#deploy" onclick="localStorage.setItem('preset_deploy','express')" class="starter-card">
+                  <div class="starter-card-icon" style="background:rgba(6,182,212,0.18);border:1px solid rgba(6,182,212,0.35);">🟢</div>
+                  <div class="starter-card-body">
+                    <div class="starter-card-title">Express.js Node 20</div>
+                    <div class="starter-card-desc">Clean Node runtime with automatic package.json caching and port 80 routing.</div>
+                    <span class="starter-card-cta">Deploy Template &rarr;</span>
+                  </div>
+                </a>
+
+                <a href="/#deploy" class="starter-card">
+                  <div class="starter-card-icon" style="background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.35);">🐙</div>
+                  <div class="starter-card-body">
+                    <div class="starter-card-title">Custom GitHub Repo</div>
+                    <div class="starter-card-desc">Paste any public repository URL and launch with your custom environment.</div>
+                    <span class="starter-card-cta">Connect Repository &rarr;</span>
+                  </div>
+                </a>
+              </div>
+
+              <div class="infra-highlights-bar">
+                <div class="infra-pill"><span class="infra-dot" style="background:var(--green);"></span> Free-Tier t3.micro Ready</div>
+                <div class="infra-pill"><span class="infra-dot" style="background:var(--purple);"></span> AES-256 Vault Encryption</div>
+                <div class="infra-pill"><span class="infra-dot" style="background:var(--blue);"></span> Automatic Port 80 Ingress</div>
+                <div class="infra-pill"><span class="infra-dot" style="background:var(--amber);"></span> GitHub Push Webhook Ready</div>
+              </div>
             </div>`;
           return;
         }
 
         countLabel.innerHTML = `<span class="dashboard-count-num">${apps.length}</span> total &nbsp;·&nbsp; <span class="dashboard-count-num" style="color:var(--green);">${running}</span> running`;
-
-        const { key, secret } = getCredentials();
-        if (!key || !secret) {
-          document.getElementById("creds_warning").style.display = "block";
-        }
 
         grid.innerHTML = apps.map((app, i) => {
           const [appId, repo, url, status, instanceId] = app;
@@ -278,8 +235,45 @@
             </div>
             ${urlSection}
             ${instanceId ? `<div style="font-size:0.72rem;color:var(--ink-3);font-family:'JetBrains Mono',monospace;">Instance: ${escHtml(instanceId)}</div>` : ""}
+            ${canTerminate ? `
+            <div class="metrics-panel" id="metrics_panel_${escHtml(instanceId)}">
+              <div class="metrics-grid">
+                <div class="metric-item">
+                  <div class="metric-head">
+                    <span class="metric-name">CPU</span>
+                    <span class="metric-val" id="cpu_val_${escHtml(instanceId)}">--%</span>
+                  </div>
+                  <div class="metric-chart" id="cpu_chart_${escHtml(instanceId)}">
+                    <div style="font-size:0.68rem;color:var(--ink-3);">Loading...</div>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-head">
+                    <span class="metric-name">RAM</span>
+                    <span class="metric-val" id="ram_val_${escHtml(instanceId)}">--%</span>
+                  </div>
+                  <div class="metric-chart" id="ram_chart_${escHtml(instanceId)}">
+                    <div style="font-size:0.68rem;color:var(--ink-3);">Loading...</div>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-head">
+                    <span class="metric-name">NET</span>
+                    <span class="metric-val" id="net_val_${escHtml(instanceId)}">-- KB/s</span>
+                  </div>
+                  <div class="metric-chart" id="net_chart_${escHtml(instanceId)}">
+                    <div style="font-size:0.68rem;color:var(--ink-3);">Loading...</div>
+                  </div>
+                </div>
+              </div>
+              <div class="metric-status-row">
+                <span class="metric-health-badge" id="health_${escHtml(instanceId)}">● Checking health...</span>
+                <span class="metric-refresh-text" onclick="fetchInstanceMetrics('${escHtml(instanceId)}')" title="Refresh metrics">↺ Refresh</span>
+              </div>
+            </div>` : ""}
             <div class="app-card-footer">
               ${url ? `<a class="btn btn-ghost btn-sm" href="${url}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}
+              <button class="btn btn-ghost btn-sm" onclick="showWebhookModal('${escHtml(appId)}', '${escHtml(repo)}')" title="GitHub Auto-Deploy Webhook">⚡ Webhook</button>
               <button
                 class="btn btn-danger btn-sm"
                 onclick="terminateApp('${escHtml(instanceId || "")}', this)"
@@ -291,13 +285,15 @@
           </div>`;
         }).join("");
 
+        setTimeout(loadAllInstanceMetrics, 80);
+
       } catch (err) {
         document.getElementById("app_count_label").textContent = "Failed to load";
         grid.innerHTML = `
           <div class="empty-state" style="grid-column:1/-1;">
             <div class="empty-state-icon">⚠️</div>
             <h3>Could not load deployments</h3>
-            <p>${err.message || "Network error — check your connection."}</p>
+            <p>${err.message || "Network error: check your connection."}</p>
             <button class="btn btn-ghost" onclick="loadApps()" style="margin-top:8px;">Try again</button>
           </div>`;
         showToast("Failed to load apps: " + (err.message || "unknown error"), "error");
@@ -307,63 +303,236 @@
       }
     }
 
-    // ── Terminate ──────────────────────────────────────────────────
+    // ── Terminate EC2 Instance (Validated Ownership + Encrypted Vault) ─
     async function terminateApp(instanceId, btnEl) {
       if (!instanceId || !instanceId.startsWith("i-")) {
         showToast("Invalid instance ID.", "error");
         return;
       }
 
-      const { key, secret } = getCredentials();
-      if (!key || !secret) {
-        showToast("No AWS credentials — click 'Set credentials' first.", "error");
-        showCredsModal();
-        return;
-      }
-
-      const confirmed = confirm(`Terminate instance ${instanceId}?\n\nThis will stop and remove the EC2 instance. This action cannot be undone.`);
+      const confirmed = confirm(`Terminate instance ${instanceId}?\n\nThis will safely stop and delete the EC2 instance using your vault credentials. This action cannot be undone.`);
       if (!confirmed) return;
 
       btnEl.disabled = true;
       btnEl.textContent = "Terminating…";
 
       try {
-        const res = await fetch("/delete/" + instanceId, {
+        const res = await fetchWithAuth("/delete/" + encodeURIComponent(instanceId), {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ aws_key: key, aws_secret: secret }),
         });
         const data = await res.json();
 
         if (!res.ok) {
-          showToast(data.detail || "Terminate failed.", "error");
+          if (res.status === 400 && data.detail && data.detail.includes("credentials")) {
+            showToast("AWS credentials required to terminate. Please configure your vault.", "error");
+            openVaultModal();
+          } else {
+            showToast(data.detail || "Terminate failed.", "error");
+          }
           btnEl.disabled = false;
           btnEl.textContent = "Terminate";
           return;
         }
 
-        showToast(data.message || `Instance ${instanceId} terminated.`, "success");
-        // Refresh after short delay so DB status is updated
-        setTimeout(loadApps, 800);
+        showToast(data.message || `Instance ${instanceId} termination initiated.`, "success");
+        setTimeout(loadApps, 1000);
 
       } catch (err) {
-        showToast("Network error during termination.", "error");
+        showToast("Error terminating instance: " + (err.message || "network error"), "error");
         btnEl.disabled = false;
         btnEl.textContent = "Terminate";
       }
     }
 
-    // ── HTML escape ────────────────────────────────────────────────
-    function escHtml(str) {
-      return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+    // ── Git Push Webhook Modal Helper ──────────────────────────────
+    function showWebhookModal(appId, repo) {
+      const webhookUrl = `${window.location.origin}/api/webhooks/github/${appId}`;
+
+      let modal = document.getElementById("adops_webhook_modal");
+      if (!modal) {
+        const modalHtml = `
+        <div id="adops_webhook_modal" class="modal-backdrop" style="display:none;">
+          <div class="modal-box" style="max-width:540px;">
+            <div class="modal-header">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:1.3rem;">⚡</span>
+                <div>
+                  <div style="font-size:1.05rem;font-weight:700;color:var(--ink);">GitHub Auto-Deploy Webhook</div>
+                  <div style="font-size:0.78rem;color:var(--ink-3);">Automatically redeploys your app on every git push</div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="closeWebhookModal()" style="padding:4px 8px;">✕</button>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label style="font-size:0.78rem;font-weight:600;color:var(--ink-2);margin-bottom:6px;display:block;">Payload URL</label>
+              <div style="display:flex;gap:8px;">
+                <input id="webhook_url_input" type="text" readonly style="font-family:var(--font-mono);font-size:0.8rem;background:var(--bg-elevated);color:var(--purple);border:1px solid var(--border);" value="">
+                <button type="button" class="btn btn-primary btn-sm" onclick="copyWebhookUrl()" id="copy_webhook_btn">Copy URL</button>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:0.8rem;color:var(--ink-2);line-height:1.5;margin-bottom:18px;">
+              <div style="font-weight:700;color:var(--ink);margin-bottom:6px;">GitHub Setup Instructions:</div>
+              <ol style="padding-left:18px;display:flex;flex-direction:column;gap:5px;">
+                <li>Open your GitHub repository &rarr; <strong>Settings</strong> &rarr; <strong>Webhooks</strong> &rarr; <strong>Add Webhook</strong>.</li>
+                <li>Paste the URL above into <strong>Payload URL</strong>.</li>
+                <li>Set <strong>Content type</strong> to <code>application/json</code>.</li>
+                <li>Under &ldquo;Which events would you like to trigger this webhook?&rdquo;, select <strong>Just the push event</strong>.</li>
+                <li>Click <strong>Add webhook</strong> : AutoDevOps will now redeploy your EC2 instance automatically whenever you git push!</li>
+              </ol>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;">
+              <button type="button" class="btn btn-ghost" onclick="closeWebhookModal()">Close</button>
+            </div>
+          </div>
+        </div>
+        `;
+        document.body.insertAdjacentHTML("beforeend", modalHtml);
+        modal = document.getElementById("adops_webhook_modal");
+        modal.addEventListener("click", function(e) {
+          if (e.target === this) closeWebhookModal();
+        });
+      }
+
+      document.getElementById("webhook_url_input").value = webhookUrl;
+      modal.style.display = "flex";
     }
 
-    // ── Boot ───────────────────────────────────────────────────────
-    loadApps();
+    function closeWebhookModal() {
+      const modal = document.getElementById("adops_webhook_modal");
+      if (modal) modal.style.display = "none";
+    }
+
+    function copyWebhookUrl() {
+      const input = document.getElementById("webhook_url_input");
+      if (!input) return;
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      const btn = document.getElementById("copy_webhook_btn");
+      if (btn) btn.textContent = "Copied! ✓";
+      showToast("Webhook URL copied to clipboard!", "success");
+      setTimeout(() => {
+        if (btn) btn.textContent = "Copy URL";
+      }, 2000);
+    }
+
+    // ── Live EC2 Resource Metrics Engine ───────────────────────────
+    function buildSparklineSvg(series, strokeColor) {
+      if (!series || series.length < 2) return "";
+      const width = 80;
+      const height = 22;
+      const minVal = Math.min(...series);
+      const maxVal = Math.max(...series);
+      const range = (maxVal - minVal) === 0 ? 1 : (maxVal - minVal);
+
+      const points = series.map((val, idx) => {
+        const x = Math.round((idx / (series.length - 1)) * width);
+        const y = Math.round(height - 2 - ((val - minVal) / range) * (height - 6));
+        return `${x},${y}`;
+      });
+
+      const polylinePoints = points.join(" ");
+      const polygonPoints = `0,${height} ${polylinePoints} ${width},${height}`;
+      const gradId = "grad_" + strokeColor.replace("#", "") + "_" + Math.floor(Math.random() * 1000);
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${strokeColor}" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.0"/>
+            </linearGradient>
+          </defs>
+          <polygon points="${polygonPoints}" fill="url(#${gradId})"/>
+          <polyline points="${polylinePoints}" fill="none" stroke="${strokeColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+    }
+
+    async function fetchInstanceMetrics(instanceId) {
+      if (!instanceId || !instanceId.startsWith("i-")) return;
+      try {
+        const res = await fetchWithAuth(`/api/metrics/${encodeURIComponent(instanceId)}`);
+        if (!res.ok) return;
+        const m = await res.json();
+
+        const cpuValEl = document.getElementById(`cpu_val_${instanceId}`);
+        const ramValEl = document.getElementById(`ram_val_${instanceId}`);
+        const netValEl = document.getElementById(`net_val_${instanceId}`);
+        const healthEl = document.getElementById(`health_${instanceId}`);
+        const cpuChartEl = document.getElementById(`cpu_chart_${instanceId}`);
+        const ramChartEl = document.getElementById(`ram_chart_${instanceId}`);
+        const netChartEl = document.getElementById(`net_chart_${instanceId}`);
+
+        if (cpuValEl) cpuValEl.textContent = `${m.cpu_percent}%`;
+        if (ramValEl) ramValEl.textContent = `${m.ram_percent}%`;
+        if (netValEl) netValEl.textContent = `${m.net_in_kb} KB/s`;
+
+        if (healthEl) {
+          if (m.status === "healthy") {
+            healthEl.className = "metric-health-badge";
+            healthEl.innerHTML = `● 2/2 Health Passed`;
+          } else {
+            healthEl.className = "metric-health-badge initializing";
+            healthEl.innerHTML = `○ Initializing status`;
+          }
+        }
+
+        if (cpuChartEl && m.sparklines && m.sparklines.cpu) {
+          cpuChartEl.innerHTML = buildSparklineSvg(m.sparklines.cpu, "#8b5cf6");
+        }
+        if (ramChartEl && m.sparklines && m.sparklines.ram) {
+          ramChartEl.innerHTML = buildSparklineSvg(m.sparklines.ram, "#06b6d4");
+        }
+        if (netChartEl && m.sparklines && m.sparklines.network) {
+          netChartEl.innerHTML = buildSparklineSvg(m.sparklines.network, "#22c55e");
+        }
+      } catch (_) {
+        // Silently skip if network error
+      }
+    }
+
+    function loadAllInstanceMetrics() {
+      const metricPanels = document.querySelectorAll("[id^='metrics_panel_']");
+      metricPanels.forEach(panel => {
+        const instanceId = panel.id.replace("metrics_panel_", "");
+        if (instanceId) {
+          fetchInstanceMetrics(instanceId);
+        }
+      });
+    }
+
+    // ── Initialize Dashboard with Auth Guard ────────────────────────
+    async function bootDashboard() {
+      // 1. Guard route: redirect if not logged in
+      const user = await requireAuth("/login?redirect=/dashboard");
+      if (!user) return;
+
+      // 2. Render user pill in navbar
+      renderNavbarAuth();
+
+      // 3. Vault toolbar update
+      await updateVaultToolbar();
+
+      // 4. Load authenticated user's apps
+      await loadApps();
+
+      // 5. Listen to vault updates
+      window.addEventListener("adops-vault-updated", () => {
+        updateVaultToolbar();
+      });
+
+      // 6. Polling for live resource metrics every 20s
+      setInterval(loadAllInstanceMetrics, 20000);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootDashboard);
+    } else {
+      bootDashboard();
+    }
   </script>
 </body>
 </html>

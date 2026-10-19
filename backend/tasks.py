@@ -44,7 +44,7 @@ def generate_dockerfile(app_type: str) -> str:
 # ── Main deploy task ──────────────────────────────────────────────────────────
 
 @celery_app.task(bind=True)
-def deploy_app(self, repo_url, aws_key, aws_secret, app_type, custom_dockerfile, env_vars):
+def deploy_app(self, repo_url, aws_key, aws_secret, app_type, custom_dockerfile, env_vars, user_id="system"):
     """
     Deploy a single GitHub repo to a fresh EC2 instance on port 80.
 
@@ -70,8 +70,13 @@ def deploy_app(self, repo_url, aws_key, aws_secret, app_type, custom_dockerfile,
         if not effective_aws_key or not effective_aws_secret:
             return {"error": "AWS credentials are required"}
 
+        import aws
+        is_valid, validation_msg = aws.validate_aws_credentials(effective_aws_key, effective_aws_secret)
+        if not is_valid:
+            return {"error": validation_msg}
+
         app_id = str(uuid.uuid4())[:6]
-        print(f"[DEPLOY {app_id}] Starting — repo={repo_url} app_type={app_type}")
+        print(f"[DEPLOY {app_id}] Starting: repo={repo_url} app_type={app_type}")
 
         # ── Choose Dockerfile ──────────────────────────────────────────────
         if app_type == "custom":
@@ -156,8 +161,8 @@ sudo docker run -d -p 80:80 {env_file_flag} --restart unless-stopped adops_app
 
         # ── Save + return result ───────────────────────────────────────────
         url = f"http://{ip}"
-        save_app(app_id, repo_url, url, instance_id)
-        print(f"[DEPLOY {app_id}] Done — url={url}")
+        save_app(app_id, repo_url, url, instance_id, user_id=user_id)
+        print(f"[DEPLOY {app_id}] Done: url={url}")
 
         return {
             "app_id": app_id,

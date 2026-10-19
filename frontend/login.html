@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d0f">
+  <meta name="description" content="Sign in or create an AutoDevOps account to deploy and monitor isolated cloud infrastructure.">
+  <title>Sign In | AutoDevOps</title>
+  <link rel="stylesheet" href="/static/style.css?v=9">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
+  <script src="/static/auth.js"></script>
+  <script>
+    // Theme initialization
+    function getStoredTheme() {
+      var saved = localStorage.getItem('adops-theme');
+      return saved || 'dark';
+    }
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('adops-theme', theme);
+      var btn = document.getElementById('theme_toggle_btn');
+      if (btn) btn.textContent = (theme === 'light' ? '🌙' : '☀️');
+    }
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      var next = (current === 'dark' ? 'light' : 'dark');
+      applyTheme(next);
+    }
+    document.documentElement.setAttribute('data-theme', getStoredTheme());
+    document.addEventListener('DOMContentLoaded', function() {
+      applyTheme(getStoredTheme());
+      // If already logged in, redirect to dashboard
+      const token = getAuthToken();
+      if (token) {
+        window.location.href = "/dashboard";
+      }
+    });
+  </script>
+  <style>
+    .auth-page-wrap {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 2;
+    }
+    .auth-center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 36px 32px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+      position: relative;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .auth-card::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: 15%;
+      right: 15%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--purple), transparent);
+    }
+    .auth-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .auth-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 1.35rem;
+      color: var(--ink);
+      text-decoration: none;
+      margin-bottom: 12px;
+    }
+    .auth-logo-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 14px var(--purple-glow);
+    }
+    .auth-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+    .auth-subtitle {
+      font-size: 0.85rem;
+      color: var(--ink-2);
+      margin-top: 6px;
+      line-height: 1.45;
+    }
+
+    /* Tabs */
+    .auth-tabs {
+      display: flex;
+      background: var(--bg-elevated);
+      padding: 4px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .auth-tab {
+      flex: 1;
+      text-align: center;
+      padding: 9px 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--ink-2);
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-tab.active {
+      background: var(--bg-surface);
+      color: var(--ink);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    /* Alert / Error message */
+    .auth-alert {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      margin-bottom: 18px;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+    .auth-alert.error {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .auth-alert.success {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #86efac;
+    }
+
+    .password-wrap {
+      position: relative;
+    }
+    .password-toggle-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--ink-3);
+      cursor: pointer;
+      font-size: 0.95rem;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .password-toggle-btn:hover {
+      color: var(--ink);
+    }
+
+    .auth-features {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .auth-feat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.74rem;
+      color: var(--ink-3);
+    }
+    .auth-feat-icon {
+      color: var(--purple);
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-blob glow-blob-1"></div>
+  <div class="glow-blob glow-blob-2"></div>
+  <div class="glow-blob glow-blob-3"></div>
+  <div class="glow-blob glow-blob-4"></div>
+
+  <div class="auth-page-wrap">
+    <!-- Top Minimal Bar -->
+    <nav class="nav" style="border-bottom:1px solid transparent;">
+      <a class="nav-logo" href="/">
+        <div class="nav-logo-icon">⚡</div>
+        <span class="nav-logo-text">AutoDevOps</span>
+      </a>
+      <div class="nav-actions">
+        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">☀️</button>
+        <a class="btn btn-ghost btn-sm" href="/">← Home</a>
+      </div>
+    </nav>
+
+    <!-- Main Auth Card -->
+    <div class="auth-center">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="auth-logo">
+            <div class="auth-logo-badge">⚡</div>
+            <span>AutoDevOps</span>
+          </div>
+          <div class="auth-title" id="auth_header_title">Welcome Back</div>
+          <div class="auth-subtitle" id="auth_header_sub">Sign in to manage your isolated cloud VMs &amp; deployments.</div>
+        </div>
+
+        <!-- Tab Switcher -->
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab active" id="tab_login" onclick="switchTab('login')">Sign In</button>
+          <button type="button" class="auth-tab" id="tab_register" onclick="switchTab('register')">Create Account</button>
+        </div>
+
+        <!-- Alert Notification -->
+        <div class="auth-alert" id="auth_alert"></div>
+
+        <!-- Form -->
+        <form id="auth_form" onsubmit="handleAuthSubmit(event)">
+          <!-- Email field -->
+          <div class="field" style="margin-bottom:16px;">
+            <label for="auth_email">Work or Personal Email</label>
+            <input
+              id="auth_email"
+              type="email"
+              placeholder="developer@company.com"
+              required
+              autocomplete="email"
+              spellcheck="false"
+            >
+          </div>
+
+          <!-- Password field -->
+          <div class="field" style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <label for="auth_password">Password</label>
+              <span id="pw_hint" style="font-size:0.72rem;color:var(--ink-3);display:none;">Min. 8 characters</span>
+            </div>
+            <div class="password-wrap">
+              <input
+                id="auth_password"
+                type="password"
+                placeholder="••••••••••••"
+                required
+                autocomplete="current-password"
+                minlength="8"
+              >
+              <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('auth_password', this)" title="Show/hide password">👁️</button>
+            </div>
+          </div>
+
+          <!-- Confirm Password (Register tab only) -->
+          <div class="field" id="confirm_pw_field" style="display:none;margin-bottom:18px;">
+            <label for="auth_confirm_password">Confirm Password</label>
+            <div class="password-wrap">
+              <input
+                id="auth_confirm_password"
+                type="password"
+                placeholder="••••••••••••"
+                autocomplete="new-password"
+                minlength="8"
+              >
+              <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('auth_confirm_password', this)" title="Show/hide password">👁️</button>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="auth_submit_btn" style="margin-top:4px;">
+            Sign In →
+          </button>
+        </form>
+
+        <!-- Trust & Security Badges -->
+        <div class="auth-features">
+          <div class="auth-feat-item">
+            <span class="auth-feat-icon">🛡️</span>
+            <span>AES-256 Vault</span>
+          </div>
+          <div class="auth-feat-item">
+            <span class="auth-feat-icon">🔒</span>
+            <span>Bcrypt Hashing</span>
+          </div>
+          <div class="auth-feat-item">
+            <span class="auth-feat-icon">⚡</span>
+            <span>Isolated Cloud VMs</span>
+          </div>
+          <div class="auth-feat-item">
+            <span class="auth-feat-icon">🔑</span>
+            <span>Zero Secret Leaks</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" style="margin-top:auto;">
+      AutoDevOps &middot; Isolated multi-tenant cloud application engine.
+    </footer>
+  </div>
+
+  <script>
+    let _mode = "login"; // "login" | "register"
+
+    function switchTab(mode) {
+      _mode = mode;
+      hideAlert();
+
+      const tabLogin = document.getElementById("tab_login");
+      const tabReg   = document.getElementById("tab_register");
+      const title    = document.getElementById("auth_header_title");
+      const sub      = document.getElementById("auth_header_sub");
+      const submitBtn= document.getElementById("auth_submit_btn");
+      const confirmField = document.getElementById("confirm_pw_field");
+      const pwHint   = document.getElementById("pw_hint");
+
+      if (mode === "register") {
+        tabLogin.classList.remove("active");
+        tabReg.classList.add("active");
+        title.textContent = "Create an Account";
+        sub.textContent = "Get your private dashboard and deploy VMs securely.";
+        submitBtn.textContent = "Create Account →";
+        confirmField.style.display = "block";
+        pwHint.style.display = "inline";
+        document.getElementById("auth_confirm_password").required = true;
+      } else {
+        tabReg.classList.remove("active");
+        tabLogin.classList.add("active");
+        title.textContent = "Welcome Back";
+        sub.textContent = "Sign in to manage your isolated cloud VMs & deployments.";
+        submitBtn.textContent = "Sign In →";
+        confirmField.style.display = "none";
+        pwHint.style.display = "none";
+        document.getElementById("auth_confirm_password").required = false;
+      }
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      if (el.type === "password") {
+        el.type = "text";
+        btn.textContent = "🙈";
+      } else {
+        el.type = "password";
+        btn.textContent = "👁️";
+      }
+    }
+
+    function showAlert(msg, type = "error") {
+      const alert = document.getElementById("auth_alert");
+      alert.className = `auth-alert ${type}`;
+      alert.innerHTML = `<span>${type === "error" ? "⚠️" : "✅"}</span><span>${escHtml(msg)}</span>`;
+      alert.style.display = "flex";
+    }
+
+    function hideAlert() {
+      const alert = document.getElementById("auth_alert");
+      alert.style.display = "none";
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      hideAlert();
+
+      const email = document.getElementById("auth_email").value.trim();
+      const password = document.getElementById("auth_password").value;
+      const submitBtn = document.getElementById("auth_submit_btn");
+
+      if (!email || !password) {
+        showAlert("Please fill in all required fields.", "error");
+        return;
+      }
+
+      if (_mode === "register") {
+        const confirmPw = document.getElementById("auth_confirm_password").value;
+        if (password.length < 8) {
+          showAlert("Password must be at least 8 characters long.", "error");
+          return;
+        }
+        if (password !== confirmPw) {
+          showAlert("Passwords do not match.", "error");
+          return;
+        }
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = _mode === "register" ? "Creating Account…" : "Signing In…";
+
+      try {
+        const endpoint = _mode === "register" ? "/api/auth/register" : "/api/auth/login";
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.detail || "Authentication request failed.");
+        }
+
+        // Store JWT token and user
+        setAuthToken(data.token);
+        setStoredUser(data.user);
+
+        showAlert(_mode === "register" ? "Account created! Redirecting…" : "Success! Redirecting…", "success");
+
+        // Parse redirect target or default to /dashboard
+        const params = new URLSearchParams(window.location.search);
+        const destination = params.get("redirect") || "/dashboard";
+
+        setTimeout(() => {
+          window.location.href = destination;
+        }, 400);
+
+      } catch (err) {
+        showAlert(err.message, "error");
+        submitBtn.disabled = false;
+        submitBtn.textContent = _mode === "register" ? "Create Account →" : "Sign In →";
+      }
+    }
+
+    // Check if query param expired=1 was passed
+    window.addEventListener("DOMContentLoaded", () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("expired")) {
+        showAlert("Your session has expired. Please sign in again.", "error");
+      }
+      if (params.get("tab") === "register") {
+        switchTab("register");
+      }
+    });
+  </script>
+</body>
+</html>

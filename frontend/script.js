@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────────────────
-   AutoDevOps — script.js
+   AutoDevOps : script.js
    Full Overhaul Implementation:
    - Single-service, Port-80 deployment model
    - Runtime selector: Python | Node.js | Custom
@@ -69,9 +69,8 @@ function selectAppType(type) {
 
 // ── Theme Helpers ──────────────────────────────────────────────────
 function initTheme() {
-  const saved     = localStorage.getItem("adops-theme");
-  const preferred = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  const theme     = saved || preferred;
+  const saved = localStorage.getItem("adops-theme");
+  const theme = saved || "dark";
   document.documentElement.setAttribute("data-theme", theme);
   _updateThemeIcon(theme);
 }
@@ -204,54 +203,54 @@ function hideResultCard() {
   if (card) card.classList.remove("visible");
 }
 
-// ── Session Credentials ────────────────────────────────────────────
-function storeCredentials(key, secret) {
-  try {
-    sessionStorage.setItem("_adops_key",    key);
-    sessionStorage.setItem("_adops_secret", secret);
-    localStorage.setItem("aws_key",         key);
-    localStorage.setItem("aws_secret",      secret);
-  } catch (_) {}
-}
+// ── Vault & Session Credentials ────────────────────────────────────
+let _usingSavedVault = false;
+let _vaultMaskedKey  = "";
 
-function getStoredCredentials() {
-  return {
-    key:    sessionStorage.getItem("_adops_key")    || localStorage.getItem("aws_key")    || "",
-    secret: sessionStorage.getItem("_adops_secret") || localStorage.getItem("aws_secret") || "",
-  };
-}
-
-function downloadCredentials() {
-  const keyInput    = document.getElementById("aws_key");
-  const secretInput = document.getElementById("aws_secret");
-
-  const key    = (keyInput    ? keyInput.value.trim()    : "") || getStoredCredentials().key;
-  const secret = (secretInput ? secretInput.value.trim() : "") || getStoredCredentials().secret;
-
-  if (!key || !secret) {
-    showToast("No credentials to save.", "error");
+async function initVaultState() {
+  const token = typeof getAuthToken === "function" ? getAuthToken() : "";
+  if (!token) {
+    _usingSavedVault = false;
+    updateVaultUI(false, "");
     return;
   }
 
-  const content = [
-    "# AutoDevOps AWS credentials",
-    "# Keep this file private — never commit it to git.",
-    `AWS_ACCESS_KEY_ID=${key}`,
-    `AWS_SECRET_ACCESS_KEY=${secret}`,
-    "",
-  ].join("\n");
+  const status = await getVaultStatus();
+  if (status && status.configured && status.masked_key) {
+    _usingSavedVault = true;
+    _vaultMaskedKey = status.masked_key;
+    updateVaultUI(true, status.masked_key);
+  } else {
+    _usingSavedVault = false;
+    _vaultMaskedKey = "";
+    updateVaultUI(false, "");
+  }
+}
 
-  const blob = new Blob([content], { type: "text/plain" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = "aws_credentials.env";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+function updateVaultUI(hasVault, maskedKey) {
+  const banner = document.getElementById("vault_deploy_banner");
+  const preview = document.getElementById("vault_active_key_preview");
+  const manualWrap = document.getElementById("manual_creds_wrap");
+  const toggleBtn = document.getElementById("toggle_custom_creds_btn");
 
-  showToast("Saved aws_credentials.env", "success");
+  if (!banner || !manualWrap) return;
+
+  if (hasVault && _usingSavedVault) {
+    banner.style.display = "flex";
+    if (preview) preview.textContent = maskedKey || "AKIA••••";
+    manualWrap.style.display = "none";
+    if (toggleBtn) toggleBtn.textContent = "Use Custom / Enter New";
+  } else {
+    banner.style.display = hasVault ? "flex" : "none";
+    if (preview) preview.textContent = maskedKey || "AKIA••••";
+    manualWrap.style.display = "block";
+    if (toggleBtn) toggleBtn.textContent = "Use Vault Credentials";
+  }
+}
+
+function toggleCustomCreds() {
+  _usingSavedVault = !_usingSavedVault;
+  updateVaultUI(Boolean(_vaultMaskedKey), _vaultMaskedKey);
 }
 
 // ── Deploy Submission ──────────────────────────────────────────────
@@ -261,11 +260,22 @@ async function deploy() {
     return;
   }
 
-  const repo        = (document.getElementById("repo")?.value || "").trim();
-  const awsKey      = (document.getElementById("aws_key")?.value || "").trim();
-  const awsSecret   = (document.getElementById("aws_secret")?.value || "").trim();
-  const customDf    = (document.getElementById("custom_dockerfile")?.value || "").trim();
-  const envVars     = (document.getElementById("env_vars")?.value || "").trim();
+  // Auth Guard
+  const token = typeof getAuthToken === "function" ? getAuthToken() : "";
+  if (!token) {
+    showToast("Please sign in to deploy infrastructure.", "error");
+    setTimeout(() => {
+      window.location.href = "/login?redirect=/";
+    }, 600);
+    return;
+  }
+
+  const repo      = (document.getElementById("repo")?.value || "").trim();
+  const awsKey    = (document.getElementById("aws_key")?.value || "").trim();
+  const awsSecret = (document.getElementById("aws_secret")?.value || "").trim();
+  const customDf  = (document.getElementById("custom_dockerfile")?.value || "").trim();
+  const envVars   = (document.getElementById("env_vars")?.value || "").trim();
+  const saveVault = document.getElementById("save_to_vault_check")?.checked;
 
   // ── Validation ───────────────────────────────────────────────────
   if (!repo) {
@@ -282,11 +292,14 @@ async function deploy() {
     return;
   }
 
-  if (!awsKey || !awsSecret) {
-    setStatus("AWS credentials are required.", "error");
-    showToast("Enter your AWS Access Key and Secret Key.", "error");
-    document.getElementById("aws_key")?.focus();
-    return;
+  // If NOT using saved vault, user must supply valid keys
+  if (!_usingSavedVault) {
+    if (!awsKey || !awsSecret) {
+      setStatus("AWS credentials are required.", "error");
+      showToast("Enter your AWS Access Key and Secret Key.", "error");
+      document.getElementById("aws_key")?.focus();
+      return;
+    }
   }
 
   if (_currentAppType === "custom" && !customDf) {
@@ -296,8 +309,18 @@ async function deploy() {
     return;
   }
 
-  // ── Save credentials for current session ─────────────────────────
-  storeCredentials(awsKey, awsSecret);
+  // Optionally encrypt and save newly entered keys to vault
+  if (!_usingSavedVault && awsKey && awsSecret && saveVault) {
+    try {
+      await saveVaultCredentials(awsKey, awsSecret);
+      _vaultMaskedKey = maskKeyPreview(awsKey);
+      _usingSavedVault = true;
+      updateVaultUI(true, _vaultMaskedKey);
+      showToast("Credentials encrypted & saved to vault.", "success");
+    } catch (vErr) {
+      console.warn("Could not auto-save to vault:", vErr);
+    }
+  }
 
   // ── Start UI state ───────────────────────────────────────────────
   _deployInProgress = true;
@@ -307,9 +330,15 @@ async function deploy() {
   showTerminal();
   setStatus("Queuing deployment…", "active");
 
-  appendLog("Validating request…", "info");
+  appendLog("Validating request & permissions…", "info");
   appendLog(`Repository: ${repo}`);
   appendLog(`Runtime: ${_currentAppType.toUpperCase()} (Port 80)`);
+  if (_usingSavedVault) {
+    appendLog(`Credentials: Encrypted Vault Key (${_vaultMaskedKey || "Active"})`, "info");
+  } else {
+    appendLog("Credentials: Custom session keys attached", "info");
+  }
+
   if (envVars) {
     const lineCount = envVars.split("\n").filter(l => l.trim() && !l.startsWith("#")).length;
     appendLog(`ENV Variables: ${lineCount} variable(s) attached (will be shredded on boot)`, "info");
@@ -318,17 +347,23 @@ async function deploy() {
   appendLogCursor();
 
   try {
-    const res = await fetch("/deploy", {
+    const payload = {
+      repo_url:          repo,
+      app_type:          _currentAppType,
+      custom_dockerfile: _currentAppType === "custom" ? customDf : null,
+      env_vars:          envVars || null,
+      use_saved_credentials: _usingSavedVault,
+    };
+
+    if (!_usingSavedVault) {
+      payload.aws_key = awsKey;
+      payload.aws_secret = awsSecret;
+    }
+
+    const res = await fetchWithAuth("/deploy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        repo_url:          repo,
-        aws_key:           awsKey,
-        aws_secret:        awsSecret,
-        app_type:          _currentAppType,
-        custom_dockerfile: _currentAppType === "custom" ? customDf : null,
-        env_vars:          envVars || null,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
@@ -360,14 +395,21 @@ async function deploy() {
   }
 }
 
+function maskKeyPreview(key) {
+  if (!key) return "";
+  if (key.length <= 8) return "••••••••";
+  return key.slice(0, 4) + "••••••••" + key.slice(-4);
+}
+
 // ── Real-time Status Polling ───────────────────────────────────────
 function startPolling(taskId) {
   if (_pollInterval) clearInterval(_pollInterval);
 
   let attempts = 0;
-  const MAX_ATTEMPTS = 180; // ~6 minutes at 2s interval
+  let lastLoggedStep = "";
+  const MAX_ATTEMPTS = 180;
 
-  _pollInterval = setInterval(async () => {
+  const pollStep = async () => {
     attempts++;
 
     if (attempts > MAX_ATTEMPTS) {
@@ -389,15 +431,16 @@ function startPolling(taskId) {
       const state = data.state || "";
       const meta  = data.meta  || {};
 
-      if (meta.step) {
+      if (meta.step && meta.step !== lastLoggedStep) {
+        lastLoggedStep = meta.step;
         removeLogCursor();
         appendLog(meta.step, "info");
         appendLogCursor();
         setStatus(meta.step, "active");
       }
 
-      if (state === "PENDING") {
-        setStatus("Waiting for worker to pick up task…", "active");
+      if (state === "PENDING" && !meta.step) {
+        setStatus("Allocating worker environment…", "active");
       }
 
       if (state === "PROGRESS" || state === "STARTED") {
@@ -416,6 +459,32 @@ function startPolling(taskId) {
           appendLog("Deployment failed: " + result.error, "error");
           setStatus("Failed: " + result.error, "error");
           showToast("Deployment failed: " + result.error, "error");
+
+          const errHtml = `
+            <div class="result-error-card" style="border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.08); border-radius: 12px; padding: 18px; margin-top: 6px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <span style="font-size:22px;">🛑</span>
+                <div>
+                  <div style="font-weight:700; color:#f87171; font-size:15px;">Deployment Stopped: Real AWS Credentials Required</div>
+                  <div style="font-size:12px; color:var(--ink-2); margin-top:2px;">No virtual machine or fake IP was created.</div>
+                </div>
+              </div>
+              <p style="color:var(--ink-1); font-size:13px; line-height:1.6; margin: 10px 0 14px 0; background:rgba(0,0,0,0.25); padding:10px 12px; border-radius:8px; border-left:3px solid #ef4444;">
+                ${escHtml(result.error)}
+              </p>
+              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px 14px; font-size:12.5px; color:var(--ink-2); line-height:1.65; margin-bottom:14px;">
+                <div style="font-weight:600; color:var(--ink-1); margin-bottom:6px;">How to deploy successfully:</div>
+                <div style="margin-bottom:4px;">1. AutoDevOps provisions real Amazon EC2 instances directly on your AWS account.</div>
+                <div style="margin-bottom:4px;">2. Go to the <strong>AWS Management Console &gt; IAM &gt; Users &gt; Security credentials</strong>.</div>
+                <div style="margin-bottom:4px;">3. Generate an <strong>Access Key</strong> and ensure the policy <code>AmazonEC2FullAccess</code> is attached.</div>
+                <div>4. Enter your real Access Key and Secret Key above, or store them in your private encrypted vault.</div>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="openVaultModal()">🔐 Open Credential Vault</button>
+                <a href="https://console.aws.amazon.com/iam/home#/users" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="text-decoration:none;">↗ AWS IAM Console</a>
+              </div>
+            </div>`;
+          showResultCard(errHtml);
           return;
         }
 
@@ -456,26 +525,25 @@ function startPolling(taskId) {
         setDeployButtonState(false);
         removeLogCursor();
         appendLog("Worker process terminated with failure.", "error");
-        setStatus("Deployment failed — worker error.", "error");
+        setStatus("Deployment failed: worker error.", "error");
         showToast("Deployment failed on worker.", "error");
       }
 
     } catch (_) {
       // transient network hiccup
     }
-  }, 2000);
+  };
+
+  pollStep();
+  _pollInterval = setInterval(pollStep, 1200);
 }
 
 // ── Load Example Helper ────────────────────────────────────────────
 function fillExample() {
   const repoEl   = document.getElementById("repo");
-  const keyEl    = document.getElementById("aws_key");
-  const secretEl = document.getElementById("aws_secret");
   const envEl    = document.getElementById("env_vars");
 
-  if (repoEl   && !repoEl.value)   repoEl.value   = "https://github.com/tiangolo/fastapi";
-  if (keyEl    && !keyEl.value)    keyEl.value    = "AKIAIOSFODNN7EXAMPLE";
-  if (secretEl && !secretEl.value) secretEl.value = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+  if (repoEl && !repoEl.value) repoEl.value = "https://github.com/tiangolo/fastapi";
 
   selectAppType("python");
 
@@ -489,7 +557,7 @@ function fillExample() {
     }
   }
 
-  showToast("Example Python app loaded.", "info");
+  showToast("Example repository loaded. Enter your AWS IAM credentials to launch.", "info");
 }
 
 // ── Clear Form ─────────────────────────────────────────────────────
@@ -515,17 +583,164 @@ function clearForm() {
   showToast("Form cleared.", "info");
 }
 
+// ── Interactive Startup Presets & Tutorial Stepper ────────────────
+function applyPreset(presetType, event) {
+  if (event) event.stopPropagation();
+
+  const repoEl = document.getElementById("repo");
+  const envEl  = document.getElementById("env_vars");
+
+  if (presetType === "fastapi") {
+    if (repoEl) repoEl.value = "https://github.com/tiangolo/fastapi";
+    selectAppType("python");
+    if (envEl) {
+      envEl.value = "ENVIRONMENT=production\nDEBUG=False\nPORT=80";
+    }
+    showToast("FastAPI preset loaded.", "info");
+  } else if (presetType === "express") {
+    if (repoEl) repoEl.value = "https://github.com/expressjs/express";
+    selectAppType("nodejs");
+    if (envEl) {
+      envEl.value = "NODE_ENV=production\nPORT=80";
+    }
+    showToast("Express.js preset loaded.", "info");
+  } else if (presetType === "flask") {
+    if (repoEl) repoEl.value = "https://github.com/pallets/flask";
+    selectAppType("python");
+    if (envEl) {
+      envEl.value = "FLASK_ENV=production\nPORT=80";
+    }
+    showToast("Flask preset loaded.", "info");
+  }
+
+  // Pulse animation on the repo input
+  if (repoEl) {
+    repoEl.classList.remove("highlight-pulse");
+    void repoEl.offsetWidth; // trigger reflow
+    repoEl.classList.add("highlight-pulse");
+    repoEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    repoEl.focus();
+  }
+
+  focusTutorialStep(1);
+}
+
+function focusTutorialStep(stepNum) {
+  [1, 2, 3].forEach(n => {
+    const el = document.getElementById("step_card_" + n);
+    if (el) {
+      if (n === stepNum) el.classList.add("active");
+      else el.classList.remove("active");
+    }
+  });
+
+  if (stepNum === 1) {
+    const repoEl = document.getElementById("repo");
+    if (repoEl) repoEl.focus();
+  } else if (stepNum === 2) {
+    if (_usingSavedVault) {
+      openVaultModal();
+    } else {
+      const keyEl = document.getElementById("aws_key");
+      if (keyEl) {
+        keyEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        keyEl.focus();
+      }
+    }
+  } else if (stepNum === 3) {
+    const deployBtn = document.getElementById("deploy_btn");
+    if (deployBtn) {
+      deployBtn.scrollIntoView({ behavior: "smooth", block: "center" });
+      deployBtn.classList.remove("highlight-pulse");
+      void deployBtn.offsetWidth;
+      deployBtn.classList.add("highlight-pulse");
+    }
+  }
+}
+
+function openIamGuideModal(event) {
+  if (event) event.stopPropagation();
+
+  if (!document.getElementById("adops_iam_modal")) {
+    const modalHtml = `
+    <div id="adops_iam_modal" class="modal-backdrop" style="display:none;">
+      <div class="modal-box" style="max-width:520px;">
+        <div class="modal-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.3rem;">📖</span>
+            <div>
+              <div style="font-size:1.05rem;font-weight:700;color:var(--ink);">AWS IAM Setup Guide</div>
+              <div style="font-size:0.78rem;color:var(--ink-3);">Minimum policies required for AutoDevOps orchestration</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="closeIamGuideModal()" style="padding:4px 8px;">✕</button>
+        </div>
+        <div style="font-size:0.83rem;color:var(--ink-2);line-height:1.6;margin-bottom:16px;">
+          <p style="margin-bottom:10px;">To allow AutoDevOps to provision EC2 instances, key pairs, and security groups in your AWS account, your IAM user requires:</p>
+          <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px;">
+            <div style="font-weight:700;color:var(--ink);margin-bottom:4px;">Required Policy:</div>
+            <code style="color:var(--purple);font-family:var(--font-mono);font-size:0.82rem;">AmazonEC2FullAccess</code>
+            <div style="font-size:0.74rem;color:var(--ink-3);margin-top:4px;">Covers: RunInstances, TerminateInstances, CreateKeyPair, CreateSecurityGroup.</div>
+          </div>
+          <ol style="padding-left:18px;margin-bottom:12px;font-size:0.8rem;color:var(--ink-2);display:flex;flex-direction:column;gap:6px;">
+            <li>Go to <strong>AWS Console &rarr; IAM &rarr; Users &rarr; Create User</strong>.</li>
+            <li>Attach the <code>AmazonEC2FullAccess</code> managed policy.</li>
+            <li>Select <strong>Security Credentials &rarr; Create Access Key</strong> (Application running outside AWS).</li>
+            <li>Copy the <strong>Access Key ID</strong> &amp; <strong>Secret Access Key</strong> into your AutoDevOps Vault.</li>
+          </ol>
+          <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:var(--radius-sm);padding:10px 12px;font-size:0.77rem;color:#86efac;">
+            🛡️ <strong>Encryption Guarantee:</strong> All credentials are encrypted at rest with AES-256 Fernet. They are never logged or exposed in cleartext.
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;">
+          <button type="button" class="btn btn-primary" onclick="closeIamGuideModal()">Got it!</button>
+        </div>
+      </div>
+    </div>
+    `;
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+    document.getElementById("adops_iam_modal").addEventListener("click", function(e) {
+      if (e.target === this) closeIamGuideModal();
+    });
+  }
+
+  document.getElementById("adops_iam_modal").style.display = "flex";
+}
+
+function closeIamGuideModal() {
+  const modal = document.getElementById("adops_iam_modal");
+  if (modal) modal.style.display = "none";
+}
+
 // ── Initial Setup on Page Load ─────────────────────────────────────
-function bootApp() {
+async function bootApp() {
   initTheme();
   selectAppType("python");
 
-  // Restore stored session credentials if available
-  const { key, secret } = getStoredCredentials();
-  const keyEl    = document.getElementById("aws_key");
-  const secretEl = document.getElementById("aws_secret");
-  if (keyEl    && key    && !keyEl.value)    keyEl.value    = key;
-  if (secretEl && secret && !secretEl.value) secretEl.value = secret;
+  if (typeof renderNavbarAuth === "function") {
+    renderNavbarAuth();
+  }
+  if (typeof initVaultState === "function") {
+    await initVaultState();
+  }
+
+  window.addEventListener("adops-vault-updated", (e) => {
+    if (e.detail && e.detail.configured && e.detail.masked_key) {
+      _vaultMaskedKey = e.detail.masked_key;
+      _usingSavedVault = true;
+      updateVaultUI(true, _vaultMaskedKey);
+    } else {
+      _vaultMaskedKey = "";
+      _usingSavedVault = false;
+      updateVaultUI(false, "");
+    }
+  });
+
+  const pendingPreset = localStorage.getItem("preset_deploy");
+  if (pendingPreset) {
+    localStorage.removeItem("preset_deploy");
+    setTimeout(() => applyPreset(pendingPreset), 150);
+  }
 }
 
 if (document.readyState === "loading") {

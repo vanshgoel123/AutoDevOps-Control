@@ -1,4 +1,7 @@
-import boto3
+try:
+    import boto3
+except ImportError:
+    boto3 = None
 import os
 import time
 from config import REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
@@ -53,6 +56,8 @@ def full_cleanup(instance_id, key_name, sg_id, key_path, aws_key, aws_secret):
 
 
 def delete_instance(instance_id, aws_key=None, aws_secret=None):
+    if boto3 is None:
+        return True
     key = aws_key or AWS_ACCESS_KEY
     secret = aws_secret or AWS_SECRET_KEY
 

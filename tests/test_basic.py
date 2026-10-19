@@ -23,7 +23,7 @@ class TestModuleImports:
         assert True
 
     def test_import_worker(self):
-        pytest.importorskip("celery", reason="celery not installed — skipped (install requirements.txt)")
+        pytest.importorskip("celery", reason="celery not installed: skipped (install requirements.txt)")
         import worker  # noqa: F401
         assert True
 
@@ -101,3 +101,16 @@ class TestDeployValidation:
         invalid = "https://gitlab.com/user/repo"
         assert valid.startswith("https://github.com/")
         assert not invalid.startswith("https://github.com/")
+
+    def test_validate_aws_credentials_rejects_placeholder(self):
+        import aws
+        valid, msg = aws.validate_aws_credentials("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+        assert valid is False
+        assert "Placeholder" in msg or "example" in msg.lower()
+
+    def test_validate_aws_credentials_rejects_empty(self):
+        import aws
+        valid, msg = aws.validate_aws_credentials("", "")
+        assert valid is False
+        assert "No AWS credentials" in msg
+

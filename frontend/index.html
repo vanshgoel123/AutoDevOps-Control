@@ -6,15 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b0d0f">
   <meta name="description" content="Deploy any GitHub repo to AWS EC2 in minutes. Auto Dockerfiles for Python & Node.js on port 80.">
-  <title>AutoDevOps Ship Without Friction</title>
-  <link rel="stylesheet" href="/static/style.css?v=6">
+  <title>AutoDevOps | Ship Without Friction</title>
+  <link rel="stylesheet" href="/static/style.css?v=9">
   <link rel="icon" type="image/svg+xml"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%238b5cf6'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>⚡</text></svg>">
+  <script src="/static/auth.js"></script>
   <script>
     function getStoredTheme() {
       var saved = localStorage.getItem('adops-theme');
-      if (saved) return saved;
-      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+      return saved || 'dark';
     }
     function applyTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
@@ -40,6 +40,8 @@
 <body>
   <div class="glow-blob glow-blob-1"></div>
   <div class="glow-blob glow-blob-2"></div>
+  <div class="glow-blob glow-blob-3"></div>
+  <div class="glow-blob glow-blob-4"></div>
 
   <div class="page-wrapper">
 
@@ -50,13 +52,14 @@
         <span class="nav-logo-text">AutoDevOps</span>
       </a>
       <div class="nav-actions">
+        <span class="badge badge-green hide-mobile" style="display:inline-flex;align-items:center;gap:6px;font-size:0.75rem;padding:4px 9px;margin-right:2px;"><span class="user-avatar-dot" style="background:#22c55e;"></span>All Systems Live</span>
         <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">☀️</button>
         <a class="btn btn-ghost btn-sm" href="/dashboard">Dashboard →</a>
       </div>
     </nav>
 
     <!-- ══════════════════════════════════════════════════════════
-         SECTION 1 — Hero (full-width, centered, tall)
+         SECTION 1 : Hero (full-width, centered, tall)
     ══════════════════════════════════════════════════════════════ -->
     <section class="lp-hero">
       <div class="lp-hero-badge">
@@ -101,7 +104,7 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════════════
-         SECTION 2 — How it works (horizontal workflow diagram)
+         SECTION 2 : How it works (horizontal workflow diagram)
     ══════════════════════════════════════════════════════════════ -->
     <section class="lp-how">
       <div class="lp-section-wrap">
@@ -153,10 +156,53 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════════════
-         SECTION 3 — Deploy form (full-width card, centered)
+         SECTION 3 : Deploy form (full-width card, centered)
     ══════════════════════════════════════════════════════════════ -->
     <section class="lp-deploy" id="deploy">
       <div class="lp-section-wrap">
+
+        <!-- ── Interactive Startup Onboarding Stepper & Presets ── -->
+        <div class="interactive-tutorial-box">
+          <div class="tutorial-header">
+            <span class="tutorial-badge">INTERACTIVE STARTUP GUIDE</span>
+            <h3 class="tutorial-h3">Deploy Any Cloud App in 3 Frictionless Steps</h3>
+            <p class="tutorial-desc">Click any step for guided tips or pick a verified 1-click startup template below.</p>
+          </div>
+
+          <div class="stepper-grid">
+            <div class="step-card active" id="step_card_1" onclick="focusTutorialStep(1)">
+              <div class="step-card-num">01</div>
+              <div class="step-card-content">
+                <div class="step-card-title">Connect Repository</div>
+                <div class="step-card-desc">Paste any public GitHub repository or click a starter template:</div>
+                <div class="preset-chips">
+                  <button type="button" class="preset-chip" onclick="applyPreset('fastapi', event)">⚡ FastAPI Python</button>
+                  <button type="button" class="preset-chip" onclick="applyPreset('express', event)">🟢 Express Node.js</button>
+                  <button type="button" class="preset-chip" onclick="applyPreset('flask', event)">🌶️ Flask App</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="step-card" id="step_card_2" onclick="focusTutorialStep(2)">
+              <div class="step-card-num">02</div>
+              <div class="step-card-content">
+                <div class="step-card-title">Encrypted AWS Vault</div>
+                <div class="step-card-desc">Saved once with AES-256 Fernet encryption at rest. Never leaked or shared.</div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="openIamGuideModal(event)" style="margin-top:8px;font-size:0.72rem;padding:3px 8px;">📖 IAM Setup Guide</button>
+              </div>
+            </div>
+
+            <div class="step-card" id="step_card_3" onclick="focusTutorialStep(3)">
+              <div class="step-card-num">03</div>
+              <div class="step-card-content">
+                <div class="step-card-title">Launch on Port 80</div>
+                <div class="step-card-desc">EC2 boots, Docker container starts, and ENV is shredded on boot.</div>
+                <div class="step-stat-badge">Port 80 Direct Access</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <p class="lp-section-eyebrow">Deployment form</p>
         <h2 class="lp-section-h2">Launch a new app</h2>
 
@@ -176,24 +222,46 @@
 
           <div class="deploy-divider"></div>
 
-          <!-- 2. AWS Credentials -->
+          <!-- 2. AWS Credentials & Encrypted Vault -->
           <div class="deploy-block">
             <div class="deploy-block-header">
               <span class="deploy-block-icon" style="background:rgba(245,158,11,0.12);">🔑</span>
               <span class="deploy-block-title">AWS Credentials</span>
-              <span class="badge badge-amber" style="margin-left:auto;">Never stored</span>
+              <span id="vault_badge" class="badge badge-purple" style="margin-left:auto;">AES-256 Vault</span>
             </div>
-            <div class="field-row">
-              <div class="field">
-                <label for="aws_key">Access Key ID</label>
-                <input id="aws_key" type="text" placeholder="AKIA…" autocomplete="off" spellcheck="false">
+
+            <!-- Vault Active Banner (Shown when user has saved keys) -->
+            <div id="vault_deploy_banner" class="vault-banner" style="display:none;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:1.2rem;">🛡️</span>
+                <div>
+                  <div style="font-size:0.86rem;font-weight:600;color:var(--ink);">Using Encrypted Vault Credentials</div>
+                  <div style="font-size:0.75rem;color:var(--ink-3);margin-top:1px;">Active key: <code id="vault_active_key_preview" style="background:rgba(139,92,246,0.15);color:var(--purple);padding:1px 5px;border-radius:4px;font-family:monospace;">AKIA••••</code></div>
+                </div>
               </div>
-              <div class="field">
-                <label for="aws_secret">Secret Access Key</label>
-                <input id="aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password" spellcheck="false">
+              <button type="button" class="btn btn-ghost btn-sm" id="toggle_custom_creds_btn" onclick="toggleCustomCreds()" style="font-size:0.75rem;">Change / Enter Custom</button>
+            </div>
+
+            <!-- Manual inputs wrap -->
+            <div id="manual_creds_wrap">
+              <div class="field-row">
+                <div class="field">
+                  <label for="aws_key">Access Key ID</label>
+                  <input id="aws_key" type="text" placeholder="AKIA…" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="field">
+                  <label for="aws_secret">Secret Access Key</label>
+                  <input id="aws_secret" type="password" placeholder="••••••••••••" autocomplete="new-password" spellcheck="false">
+                </div>
+              </div>
+              <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--ink-2);cursor:pointer;">
+                  <input type="checkbox" id="save_to_vault_check" checked style="accent-color:var(--purple);cursor:pointer;">
+                  <span>Encrypt &amp; save to my private vault for future deploys</span>
+                </label>
+                <span class="field-hint" style="margin:0;">🛡️ Never logged or stored in plaintext</span>
               </div>
             </div>
-            <div class="field-hint" style="margin-top:8px;">🛡 Sent directly to your AWS account for this deploy only. Download after deploying to avoid re-entering.</div>
           </div>
 
           <div class="deploy-divider"></div>
@@ -253,7 +321,7 @@
                 <div class="card-title-icon" style="background:rgba(34,197,94,0.12);">🔐</div>
                 <div>
                   <div class="section-toggle-title">Environment Variables</div>
-                  <div class="section-toggle-desc">Optional — KEY=VALUE lines injected at container start</div>
+                  <div class="section-toggle-desc">Optional: KEY=VALUE lines injected at container start</div>
                 </div>
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
@@ -313,7 +381,7 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════════════
-         SECTION 4 — Before you start (checklist)
+         SECTION 4 : Before you start (checklist)
     ══════════════════════════════════════════════════════════════ -->
     <section class="lp-checklist">
       <div class="lp-section-wrap">
@@ -339,13 +407,13 @@
     </section>
 
     <footer class="footer">
-      AutoDevOps &mdash; Deploying directly to your AWS account on Port 80 &middot;
+      AutoDevOps &middot; Deploying directly to your AWS account on Port 80 &middot;
       <a href="/dashboard">View Dashboard</a>
     </footer>
 
   </div><!-- /page-wrapper -->
 
   <div class="toast-container" id="toast_container"></div>
-  <script src="/static/script.js?v=6"></script>
+  <script src="/static/script.js?v=9"></script>
 </body>
 </html>
