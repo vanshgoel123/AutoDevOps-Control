@@ -303,7 +303,6 @@ def deploy(
             detail="Placeholder or invalid AWS Access Key detected. AutoDevOps requires real AWS IAM credentials with AmazonEC2FullAccess to launch real cloud servers."
         )
 
-
     # Validate custom mode has a Dockerfile
     if payload.app_type == "custom":
         df = (payload.custom_dockerfile or "").strip()
@@ -510,4 +509,3 @@ async def github_webhook(app_id: str, request: Request):
         "app_id": app_id,
         "commit": commit_msg[:60]
     }
-

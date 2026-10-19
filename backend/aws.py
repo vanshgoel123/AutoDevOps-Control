@@ -77,7 +77,6 @@ def validate_aws_credentials(aws_key=None, aws_secret=None):
         return False, f"AWS Error: {err_str}"
 
 
-
 # 🔹 Create Key Pair
 def create_key_pair(ec2_client, name):
     key_pair = ec2_client.create_key_pair(KeyName=name)
@@ -212,7 +211,8 @@ def get_instance_metrics(instance_id, aws_key=None, aws_secret=None):
         except Exception:
             pass
 
-    import hashlib, time
+    import hashlib
+    import time
     h = int(hashlib.md5(f"{instance_id}-{int(time.time() / 15)}".encode()).hexdigest(), 16)
 
     cpu_series = [
