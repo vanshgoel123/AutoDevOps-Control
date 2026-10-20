@@ -401,3 +401,83 @@ class TestAPIEndpoints:
         assert res_a.status_code == 200
         assert res_a.text == sample_pem
         assert 'attachment; filename="key-app-ssh1.pem"' in res_a.headers["content-disposition"]
+
+
+# ── 5. Admin Privileges, Database Inspection & Audit Tests ────────────────────
+
+class TestAdminEndpointsAndAudit:
+    def test_admin_seed_and_login(self):
+        client = TestClient(app)
+
+        # Seed admin
+        admin = models.seed_admin_user("vanshg247776@gmail.com", "vansh@20012006")
+        assert admin["email"] == "vanshg247776@gmail.com"
+        assert admin["is_admin"] == 1
+
+        # Login with admin credentials
+        login_res = client.post("/api/auth/login", json={
+            "email": "vanshg247776@gmail.com",
+            "password": "vansh@20012006"
+        })
+        assert login_res.status_code == 200
+        data = login_res.json()
+        assert "token" in data
+        assert data["user"]["is_admin"] == 1
+
+    def test_admin_overview_and_data_access(self):
+        client = TestClient(app)
+        models.seed_admin_user("vanshg247776@gmail.com", "vansh@20012006")
+
+        login_res = client.post("/api/auth/login", json={
+            "email": "vanshg247776@gmail.com",
+            "password": "vansh@20012006"
+        })
+        token = login_res.json()["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Overview endpoint
+        overview_res = client.get("/api/admin/overview", headers=headers)
+        assert overview_res.status_code == 200
+        overview = overview_res.json()
+        assert "total_users" in overview
+        assert "database" in overview
+        assert overview["database"]["journal_mode"] == "WAL"
+
+        # Users list endpoint
+        users_res = client.get("/api/admin/users", headers=headers)
+        assert users_res.status_code == 200
+        assert isinstance(users_res.json()["users"], list)
+
+        # Deployments endpoint
+        deployments_res = client.get("/api/admin/deployments", headers=headers)
+        assert deployments_res.status_code == 200
+        assert isinstance(deployments_res.json()["deployments"], list)
+
+        # Activity endpoint
+        activity_res = client.get("/api/admin/activity", headers=headers)
+        assert activity_res.status_code == 200
+        assert isinstance(activity_res.json()["activities"], list)
+
+        # DB Inspect endpoint
+        db_res = client.get("/api/admin/db-inspect", headers=headers)
+        assert db_res.status_code == 200
+        assert "tables" in db_res.json()
+
+    def test_regular_user_forbidden_from_admin_apis(self):
+        client = TestClient(app)
+
+        # Register normal non-admin user
+        reg = client.post("/api/auth/register", json={
+            "email": "regular_member@example.com",
+            "password": "Password123!"
+        })
+        assert reg.status_code == 201
+        token = reg.json()["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Verify all admin endpoints return 403 Forbidden
+        for ep in ["/api/admin/overview", "/api/admin/users", "/api/admin/deployments", "/api/admin/activity", "/api/admin/db-inspect"]:
+            res = client.get(ep, headers=headers)
+            assert res.status_code == 403
+            assert "Admin privileges required" in res.json()["detail"]
+

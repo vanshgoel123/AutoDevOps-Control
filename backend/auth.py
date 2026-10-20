@@ -2,7 +2,7 @@ import datetime
 from typing import Optional, Dict, Any
 import bcrypt
 import jwt
-from fastapi import Request, HTTPException, status, Header
+from fastapi import Request, HTTPException, status, Header, Depends
 from config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 import models
 
@@ -85,3 +85,17 @@ def get_current_user(request: Request, authorization: Optional[str] = Header(Non
         )
 
     return user
+
+
+def get_current_admin(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    FastAPI dependency ensuring the requesting user has administrator privileges.
+    Returns 403 Forbidden if the user is not an admin.
+    """
+    is_admin = bool(current_user.get("is_admin")) or current_user.get("email", "").lower() == "vanshg247776@gmail.com"
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Admin privileges required to access this resource."
+        )
+    return current_user

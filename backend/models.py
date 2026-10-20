@@ -16,7 +16,7 @@ def get_db_connection() -> sqlite3.Connection:
 
 
 def init_db():
-    """Initialize database tables with schema migrations for user multi-tenancy."""
+    """Initialize database tables with schema migrations for user multi-tenancy and audit tracking."""
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -26,11 +26,18 @@ def init_db():
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
+            is_admin INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
+
+    # Migration check for users table
+    cur.execute("PRAGMA table_info(users);")
+    user_columns = [col["name"] for col in cur.fetchall()]
+    if "is_admin" not in user_columns:
+        cur.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;")
 
     # 2. User credentials vault table (Encrypted at rest with Fernet AES-256)
     cur.execute("""
@@ -61,6 +68,23 @@ def init_db():
         )
     """)
 
+    # 4. Activity & Attempts Log table (Auditing all deploy attempts, signups, logins, errors)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            user_email TEXT,
+            action TEXT NOT NULL,
+            status TEXT NOT NULL,
+            details TEXT,
+            ip_address TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_logs(created_at DESC);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_activity_action ON activity_logs(action);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_logs(user_id);")
+
     # Migration check: Ensure user_id column exists if table was previously created without it
     cur.execute("PRAGMA table_info(apps);")
     existing_columns = [col["name"] for col in cur.fetchall()]
@@ -88,26 +112,26 @@ def init_db():
 
 # ── User Operations ────────────────────────────────────────────────────────────
 
-def create_user(email: str, password_hash: str) -> Dict[str, Any]:
+def create_user(email: str, password_hash: str, is_admin: int = 0) -> Dict[str, Any]:
     """Create a new user with a unique ID."""
     user_id = str(uuid.uuid4())
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)",
-        (user_id, email.lower().strip(), password_hash)
+        "INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, ?)",
+        (user_id, email.lower().strip(), password_hash, is_admin)
     )
     conn.commit()
     conn.close()
-    return {"id": user_id, "email": email.lower().strip()}
+    return {"id": user_id, "email": email.lower().strip(), "is_admin": is_admin}
 
 
 def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
-    """Retrieve user record including password hash by email."""
+    """Retrieve user record including password hash and admin status by email."""
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, email, password_hash, created_at FROM users WHERE email = ?",
+        "SELECT id, email, password_hash, is_admin, created_at FROM users WHERE email = ?",
         (email.lower().strip(),)
     )
     row = cur.fetchone()
@@ -122,7 +146,7 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, email, created_at FROM users WHERE id = ?",
+        "SELECT id, email, is_admin, created_at FROM users WHERE id = ?",
         (user_id,)
     )
     row = cur.fetchone()
@@ -369,3 +393,260 @@ def get_apps():
     rows = cur.fetchall()
     conn.close()
     return [[r["id"], r["repo"], r["url"], r["status"], r["instance_id"]] for r in rows]
+
+
+# ── Audit & Activity Logging ──────────────────────────────────────────────────
+
+def log_activity(
+    action: str,
+    status: str,
+    details: Optional[str] = None,
+    user_id: Optional[str] = None,
+    user_email: Optional[str] = None,
+    ip_address: Optional[str] = None
+):
+    """Record an audit trail event (deploy attempt, signup, login, error, termination)."""
+    try:
+        log_id = str(uuid.uuid4())
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO activity_logs (id, user_id, user_email, action, status, details, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (log_id, user_id, user_email, action, status, details, ip_address)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[AUDIT LOG ERROR] Failed to record activity: {e}")
+
+
+# ── Admin Account Provisioning ─────────────────────────────────────────────────
+
+def seed_admin_user(email: str = "vanshg247776@gmail.com", plain_password: str = "vansh@20012006") -> Dict[str, Any]:
+    """
+    Ensure the super-admin account exists with admin privileges and specified credentials.
+    Called on system boot/init_db to guarantee the admin always has immediate access.
+    """
+    import bcrypt
+    salt = bcrypt.gensalt()
+    pw_hash = bcrypt.hashpw(plain_password.encode("utf-8"), salt).decode("utf-8")
+    clean_email = email.lower().strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, email, is_admin FROM users WHERE email = ?", (clean_email,))
+    row = cur.fetchone()
+
+    if row:
+        user_id = row["id"]
+        cur.execute(
+            """
+            UPDATE users 
+            SET password_hash = ?, is_admin = 1, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+            """,
+            (pw_hash, user_id)
+        )
+    else:
+        user_id = str(uuid.uuid4())
+        cur.execute(
+            """
+            INSERT INTO users (id, email, password_hash, is_admin)
+            VALUES (?, ?, ?, 1)
+            """,
+            (user_id, clean_email, pw_hash)
+        )
+
+    conn.commit()
+    conn.close()
+
+    log_activity(
+        action="ADMIN_SEEDED",
+        status="SUCCESS",
+        details=f"Super-admin account verified/seeded for {clean_email}",
+        user_id=user_id,
+        user_email=clean_email
+    )
+
+    return {"id": user_id, "email": clean_email, "is_admin": 1}
+
+
+# ── Admin Dashboard Analytics & Database Inspection ───────────────────────────
+
+def get_admin_overview() -> Dict[str, Any]:
+    """
+    Return comprehensive platform analytics across users, deployments, vaults,
+    and runtime activities.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 1. User stats
+    cur.execute("SELECT COUNT(*) as cnt FROM users")
+    total_users = cur.fetchone()["cnt"]
+
+    # 2. Vault stats
+    cur.execute("SELECT COUNT(DISTINCT user_id) as cnt FROM user_credentials")
+    users_with_vault = cur.fetchone()["cnt"]
+
+    # 3. App stats
+    cur.execute("SELECT COUNT(*) as cnt FROM apps")
+    total_apps = cur.fetchone()["cnt"]
+
+    cur.execute("SELECT COUNT(*) as cnt FROM apps WHERE status = 'RUNNING'")
+    running_instances = cur.fetchone()["cnt"]
+
+    cur.execute("SELECT COUNT(*) as cnt FROM apps WHERE status = 'DELETED'")
+    deleted_instances = cur.fetchone()["cnt"]
+
+    # 4. App type distribution
+    cur.execute("SELECT app_type, COUNT(*) as cnt FROM apps GROUP BY app_type")
+    app_types_raw = cur.fetchall()
+    app_types = {"python": 0, "nodejs": 0, "custom": 0}
+    for row in app_types_raw:
+        k = (row["app_type"] or "python").lower()
+        app_types[k] = row["cnt"]
+
+    # 5. Activity log stats
+    cur.execute("SELECT COUNT(*) as cnt FROM activity_logs WHERE action LIKE 'DEPLOY%'")
+    total_deploy_attempts = cur.fetchone()["cnt"]
+
+    cur.execute("SELECT COUNT(*) as cnt FROM activity_logs WHERE action = 'DEPLOY_SUCCESS'")
+    successful_deploys = cur.fetchone()["cnt"]
+
+    cur.execute("SELECT COUNT(*) as cnt FROM activity_logs WHERE action = 'DEPLOY_FAILED'")
+    failed_deploys = cur.fetchone()["cnt"]
+
+    # 6. Database disk metrics
+    db_size_bytes = DB_PATH.stat().st_size if DB_PATH.exists() else 0
+    cur.execute("PRAGMA page_count;")
+    page_count = cur.fetchone()[0]
+    cur.execute("PRAGMA page_size;")
+    page_size = cur.fetchone()[0]
+    cur.execute("PRAGMA journal_mode;")
+    journal_mode = cur.fetchone()[0]
+
+    conn.close()
+
+    return {
+        "total_users": total_users,
+        "users_with_vault": users_with_vault,
+        "total_apps": total_apps,
+        "running_instances": running_instances,
+        "deleted_instances": deleted_instances,
+        "app_types": app_types,
+        "deploy_attempts": {
+            "total": total_deploy_attempts,
+            "success": successful_deploys,
+            "failed": failed_deploys
+        },
+        "database": {
+            "path": str(DB_PATH),
+            "size_bytes": db_size_bytes,
+            "size_formatted": f"{db_size_bytes / 1024:.1f} KB" if db_size_bytes < 1048576 else f"{db_size_bytes / (1024*1024):.2f} MB",
+            "page_count": page_count,
+            "page_size": page_size,
+            "journal_mode": str(journal_mode).upper() if journal_mode else "WAL"
+        }
+    }
+
+
+def get_all_users_admin() -> List[Dict[str, Any]]:
+    """Return detailed list of all registered users with deployment & vault counts."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT 
+            u.id,
+            u.email,
+            u.is_admin,
+            u.created_at,
+            u.updated_at,
+            CASE WHEN c.user_id IS NOT NULL THEN 1 ELSE 0 END AS has_vault,
+            c.masked_key,
+            (SELECT COUNT(*) FROM apps a WHERE a.user_id = u.id) AS total_apps,
+            (SELECT COUNT(*) FROM apps a WHERE a.user_id = u.id AND a.status = 'RUNNING') AS running_apps
+        FROM users u
+        LEFT JOIN user_credentials c ON u.id = c.user_id
+        ORDER BY u.created_at DESC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_all_apps_admin() -> List[Dict[str, Any]]:
+    """Return all applications deployed across the entire platform."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT 
+            a.id,
+            a.user_id,
+            COALESCE(u.email, 'system/anonymous') AS user_email,
+            a.repo,
+            a.url,
+            a.status,
+            a.instance_id,
+            a.app_type,
+            a.created_at,
+            a.updated_at
+        FROM apps a
+        LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY a.created_at DESC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_all_activity_admin(limit: int = 200) -> List[Dict[str, Any]]:
+    """Return recent activity, attempts, and audit events."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, user_id, user_email, action, status, details, ip_address, created_at
+        FROM activity_logs
+        ORDER BY created_at DESC
+        LIMIT ?
+    """, (limit,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_database_diagnostics() -> Dict[str, Any]:
+    """Return raw table names, row counts, and schema breakdown for SQLite."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+    tables = [r["name"] for r in cur.fetchall()]
+
+    table_stats = []
+    for table in tables:
+        cur.execute(f"SELECT COUNT(*) as cnt FROM {table}")
+        count = cur.fetchone()["cnt"]
+        cur.execute(f"PRAGMA table_info({table});")
+        columns = [{"name": c["name"], "type": c["type"], "pk": c["pk"]} for c in cur.fetchall()]
+        table_stats.append({
+            "name": table,
+            "row_count": count,
+            "columns": columns
+        })
+
+    cur.execute("SELECT sqlite_version();")
+    sqlite_ver = cur.fetchone()[0]
+    conn.close()
+
+    db_size = DB_PATH.stat().st_size if DB_PATH.exists() else 0
+    return {
+        "sqlite_version": sqlite_ver,
+        "db_path": str(DB_PATH),
+        "db_size_bytes": db_size,
+        "db_size_formatted": f"{db_size / 1024:.1f} KB" if db_size < 1048576 else f"{db_size / (1024*1024):.2f} MB",
+        "tables": table_stats
+    }

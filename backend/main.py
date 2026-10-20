@@ -28,7 +28,17 @@ _local_tasks: Dict[str, Dict[str, Any]] = {}
 GITHUB_REPO_REGEX = re.compile(r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?/?$")
 
 
-def run_in_background(task_id: str, repo_url: str, aws_key: str, aws_secret: str, app_type: str, custom_dockerfile: Optional[str], env_vars: Optional[str], user_id: str):
+def run_in_background(
+    task_id: str,
+    repo_url: str,
+    aws_key: str,
+    aws_secret: str,
+    app_type: str,
+    custom_dockerfile: Optional[str],
+    env_vars: Optional[str],
+    user_id: str,
+    user_email: Optional[str] = None
+):
     app_id = str(uuid.uuid4())[:6]
     instance_id = None
     key_name = None
@@ -43,6 +53,13 @@ def run_in_background(task_id: str, repo_url: str, aws_key: str, aws_secret: str
     time.sleep(0.5)
 
     if not GITHUB_REPO_REGEX.match(repo_url.strip()):
+        models.log_activity(
+            action="DEPLOY_FAILED",
+            status="FAILED",
+            details=f"Invalid GitHub repository URL: {repo_url}",
+            user_id=user_id,
+            user_email=user_email
+        )
         _local_tasks[task_id] = {
             "state": "SUCCESS",
             "result": {"error": "Invalid GitHub repository URL."},
@@ -54,6 +71,13 @@ def run_in_background(task_id: str, repo_url: str, aws_key: str, aws_secret: str
         import aws
         is_valid, validation_msg = aws.validate_aws_credentials(aws_key, aws_secret)
         if not is_valid:
+            models.log_activity(
+                action="DEPLOY_FAILED",
+                status="FAILED",
+                details=f"AWS validation failed: {validation_msg} for repo {repo_url}",
+                user_id=user_id,
+                user_email=user_email
+            )
             _local_tasks[task_id] = {
                 "state": "SUCCESS",
                 "result": {"error": validation_msg},
@@ -120,6 +144,14 @@ shred -u /tmp/.adops.env 2>/dev/null || true
             ssh_key=ssh_pem
         )
 
+        models.log_activity(
+            action="DEPLOY_SUCCESS",
+            status="SUCCESS",
+            details=f"Live on port 80 at {url} (App: {app_id}, Instance: {instance_id}, Type: {app_type.upper()})",
+            user_id=user_id,
+            user_email=user_email
+        )
+
         _local_tasks[task_id] = {
             "state": "SUCCESS",
             "result": {
@@ -140,6 +172,14 @@ shred -u /tmp/.adops.env 2>/dev/null || true
         except Exception:
             pass
 
+        models.log_activity(
+            action="DEPLOY_FAILED",
+            status="FAILED",
+            details=f"Deployment exception: {str(e)}",
+            user_id=user_id,
+            user_email=user_email
+        )
+
         _local_tasks[task_id] = {
             "state": "SUCCESS",
             "result": {"error": str(e)},
@@ -157,6 +197,11 @@ BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 
 models.init_db()
+try:
+    models.seed_admin_user()
+except Exception as _seed_err:
+    print(f"[BOOT] Notice: Admin seeding check: {_seed_err}")
+
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
@@ -209,13 +254,18 @@ def dashboard():
     return FileResponse(FRONTEND_DIR / "dashboard.html")
 
 
+@app.get("/admin")
+def admin_page():
+    return FileResponse(FRONTEND_DIR / "admin.html")
+
+
 # ── Authentication Endpoints ──────────────────────────────────────────────────
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterRequest):
+def register(payload: RegisterRequest, request: Request):
     email = payload.email.strip().lower()
     if not EMAIL_REGEX.match(email):
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
@@ -233,6 +283,16 @@ def register(payload: RegisterRequest):
     pw_hash = auth.hash_password(payload.password)
     user = models.create_user(email, pw_hash)
 
+    client_ip = request.client.host if request.client else None
+    models.log_activity(
+        action="USER_REGISTER",
+        status="SUCCESS",
+        details=f"New user registered: {email}",
+        user_id=user["id"],
+        user_email=email,
+        ip_address=client_ip
+    )
+
     token = auth.create_access_token({"sub": user["id"], "email": user["email"]})
     return {
         "token": token,
@@ -242,18 +302,39 @@ def register(payload: RegisterRequest):
 
 
 @app.post("/api/auth/login")
-def login(payload: LoginRequest):
+def login(payload: LoginRequest, request: Request):
     email = payload.email.strip().lower()
     user = models.get_user_by_email(email)
 
+    client_ip = request.client.host if request.client else None
     if not user or not auth.verify_password(payload.password, user["password_hash"]):
+        models.log_activity(
+            action="USER_LOGIN",
+            status="FAILED",
+            details=f"Invalid login credentials for {email}",
+            user_email=email,
+            ip_address=client_ip
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password."
         )
 
-    safe_user = {"id": user["id"], "email": user["email"]}
-    token = auth.create_access_token({"sub": user["id"], "email": user["email"]})
+    safe_user = {
+        "id": user["id"],
+        "email": user["email"],
+        "is_admin": user.get("is_admin", 0)
+    }
+    models.log_activity(
+        action="USER_LOGIN",
+        status="SUCCESS",
+        details=f"User signed in: {email}",
+        user_id=user["id"],
+        user_email=email,
+        ip_address=client_ip
+    )
+
+    token = auth.create_access_token({"sub": user["id"], "email": user["email"], "is_admin": user.get("is_admin", 0)})
     return {
         "token": token,
         "user": safe_user,
@@ -279,6 +360,13 @@ def save_credentials(
         raise HTTPException(status_code=400, detail="Both AWS Access Key and Secret Key are required.")
 
     result = models.save_user_credentials(current_user["id"], key, secret)
+    models.log_activity(
+        action="VAULT_CONFIGURED",
+        status="SUCCESS",
+        details=f"AWS credentials saved in vault (Key preview: {result['masked_key']})",
+        user_id=current_user["id"],
+        user_email=current_user["email"]
+    )
     return {
         "message": "AWS credentials encrypted with AES-256 and securely saved to your private vault.",
         "configured": result["configured"],
@@ -295,7 +383,15 @@ def get_credentials_status(current_user: Dict[str, Any] = Depends(auth.get_curre
 @app.delete("/api/credentials")
 def delete_credentials(current_user: Dict[str, Any] = Depends(auth.get_current_user)):
     models.delete_user_credentials(current_user["id"])
+    models.log_activity(
+        action="VAULT_DELETED",
+        status="SUCCESS",
+        details="AWS credentials cleared from vault",
+        user_id=current_user["id"],
+        user_email=current_user["email"]
+    )
     return {"message": "Saved credentials removed from vault."}
+
 
 
 # ── Deployment & Multi-Tenant Management Endpoints ────────────────────────────
@@ -346,6 +442,14 @@ def deploy(
     else:
         df = None
 
+    models.log_activity(
+        action="DEPLOY_ATTEMPT",
+        status="PROGRESS",
+        details=f"Deploy request initiated for {clean_repo} (Runtime: {payload.app_type.upper()})",
+        user_id=current_user["id"],
+        user_email=current_user["email"]
+    )
+
     celery_active = False
     if deploy_app and celery_app:
         try:
@@ -370,7 +474,7 @@ def deploy(
         task_id = f"task-local-{uuid.uuid4().hex[:8]}"
         thread = threading.Thread(
             target=run_in_background,
-            args=(task_id, payload.repo_url.strip(), effective_aws_key, effective_aws_secret, payload.app_type, df, (payload.env_vars or "").strip() or None, current_user["id"]),
+            args=(task_id, payload.repo_url.strip(), effective_aws_key, effective_aws_secret, payload.app_type, df, (payload.env_vars or "").strip() or None, current_user["id"], current_user["email"]),
             daemon=True
         )
         thread.start()
@@ -455,6 +559,13 @@ def delete(
         raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
 
     models.update_status(instance_id, "DELETED", user_id=current_user["id"])
+    models.log_activity(
+        action="TERMINATE_INSTANCE",
+        status="SUCCESS",
+        details=f"Terminated EC2 instance {instance_id}",
+        user_id=current_user["id"],
+        user_email=current_user["email"]
+    )
     return {"message": f"Instance {instance_id} deletion initiated."}
 
 
@@ -602,3 +713,39 @@ async def github_webhook(app_id: str, request: Request):
         "app_id": app_id,
         "commit": commit_msg[:60]
     }
+
+
+# ── Super-Admin Dashboard & Analytics Endpoints ───────────────────────────────
+
+@app.get("/api/admin/overview")
+def admin_overview(current_admin: Dict[str, Any] = Depends(auth.get_current_admin)):
+    """Return platform analytics, user counts, runtime distribution, and DB stats."""
+    return models.get_admin_overview()
+
+
+@app.get("/api/admin/users")
+def admin_users(current_admin: Dict[str, Any] = Depends(auth.get_current_admin)):
+    """Return all registered users with deployment & vault statistics."""
+    return {"users": models.get_all_users_admin()}
+
+
+@app.get("/api/admin/deployments")
+def admin_deployments(current_admin: Dict[str, Any] = Depends(auth.get_current_admin)):
+    """Return all cloud applications and EC2 instances across all users."""
+    return {"deployments": models.get_all_apps_admin()}
+
+
+@app.get("/api/admin/activity")
+def admin_activity(
+    limit: int = 200,
+    current_admin: Dict[str, Any] = Depends(auth.get_current_admin)
+):
+    """Return audit trail of user attempts, actions, logins, and errors."""
+    return {"activities": models.get_all_activity_admin(limit=limit)}
+
+
+@app.get("/api/admin/db-inspect")
+def admin_db_inspect(current_admin: Dict[str, Any] = Depends(auth.get_current_admin)):
+    """Return raw SQLite database diagnostic metrics and table counts."""
+    return models.get_database_diagnostics()
+

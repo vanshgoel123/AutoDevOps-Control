@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d0f">
+  <meta name="description" content="Super-Admin Database & Platform Analytics Console for AutoDevOps.">
+  <title>Admin Command Center | AutoDevOps</title>
+  <link rel="stylesheet" href="/static/style.css?v=9">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23ef4444'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='white'>👑</text></svg>">
+  <script src="/static/auth.js"></script>
+  <style>
+    /* Admin Console Custom Enhancements */
+    .admin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(139, 92, 246, 0.3));
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .admin-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .admin-kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      transition: border-color var(--transition), transform var(--transition);
+    }
+    .admin-kpi-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+
+    .admin-kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--kpi-color, var(--purple)), transparent);
+    }
+
+    .kpi-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .kpi-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-3);
+    }
+
+    .kpi-icon {
+      font-size: 1.3rem;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: var(--kpi-bg, var(--purple-dim));
+      border: 1px solid var(--kpi-border, rgba(139, 92, 246, 0.3));
+    }
+
+    .kpi-val {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.1;
+      font-family: var(--font-sans);
+    }
+
+    .kpi-sub {
+      font-size: 0.78rem;
+      color: var(--ink-2);
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Admin Tabs */
+    .admin-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+
+    .admin-tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--ink-2);
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .admin-tab-btn:hover {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .admin-tab-btn.active {
+      color: var(--ink);
+      background: var(--bg-elevated);
+      border-color: var(--border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .admin-tab-btn .tab-count {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--ink);
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    /* Table styling */
+    .admin-table-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-card);
+    }
+
+    .admin-table-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .admin-search-input {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--ink);
+      font-size: 0.85rem;
+      padding: 8px 14px;
+      min-width: 260px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .admin-search-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      max-height: 600px;
+    }
+
+    table.admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    table.admin-table th {
+      padding: 12px 18px;
+      font-weight: 600;
+      color: var(--ink-3);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.15);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    table.admin-table td {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      color: var(--ink);
+      vertical-align: middle;
+    }
+
+    table.admin-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+    .status-running { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .status-deleted { background: rgba(148, 163, 184, 0.12); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25); }
+    .status-redeploying { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); }
+    .status-failed { background: rgba(244, 63, 94, 0.18); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.4); }
+    .status-progress { background: rgba(245, 158, 11, 0.18); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+    .code-pill {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 7px;
+      border-radius: 5px;
+      color: var(--ink-2);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
+    }
+
+    .bar-wrap {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Access Denied Overlay */
+    #access_denied_view {
+      display: none;
+      text-align: center;
+      padding: 80px 20px;
+    }
+  </style>
+  <script>
+    function getStoredTheme() {
+      return localStorage.getItem('adops-theme') || 'dark';
+    }
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('adops-theme', theme);
+      var btn = document.getElementById('theme_toggle_btn');
+      if (btn) btn.textContent = (theme === 'light' ? '🌙' : '☀️');
+    }
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    }
+    document.documentElement.setAttribute('data-theme', getStoredTheme());
+    document.addEventListener('DOMContentLoaded', function() {
+      applyTheme(getStoredTheme());
+    });
+  </script>
+</head>
+<body>
+  <div class="glow-blob glow-blob-1"></div>
+  <div class="glow-blob glow-blob-2"></div>
+  <div class="glow-blob glow-blob-3"></div>
+  <div class="glow-blob glow-blob-4"></div>
+
+  <div class="page-wrapper">
+    <!-- Navigation Bar -->
+    <nav class="nav">
+      <a class="nav-logo" href="/admin">
+        <div class="nav-logo-icon" style="background:linear-gradient(135deg, #ef4444, #8b5cf6);">👑</div>
+        <div>
+          <span class="nav-logo-text">AutoDevOps</span>
+          <span class="admin-badge" style="margin-left:8px;">Admin Console</span>
+        </div>
+      </a>
+
+      <div class="nav-actions">
+        <button class="theme-toggle" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+        <button class="btn btn-ghost btn-sm" onclick="fetchAllAdminData()" id="refresh_admin_btn" title="Reload all database metrics">
+          <span id="refresh_spinner">↺</span> Refresh
+        </button>
+        <select id="auto_refresh_select" onchange="handleAutoRefreshChange(this.value)" class="admin-search-input" style="min-width:auto;padding:5px 10px;font-size:0.78rem;">
+          <option value="0">Auto-refresh: Off</option>
+          <option value="10">Auto-refresh: 10s</option>
+          <option value="30" selected>Auto-refresh: 30s</option>
+          <option value="60">Auto-refresh: 60s</option>
+        </select>
+        <a class="btn btn-ghost btn-sm" href="/dashboard">← User Dashboard</a>
+        <button class="btn btn-ghost btn-sm" onclick="logout()" style="color:var(--ink-3);">Sign Out</button>
+      </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <div class="container-wide">
+
+      <!-- Access Denied View (shown only if non-admin tries to view) -->
+      <div id="access_denied_view">
+        <div style="font-size:3.5rem;margin-bottom:16px;">🛡️🚫</div>
+        <h2 style="font-size:1.8rem;color:#fca5a5;margin-bottom:10px;">Access Denied</h2>
+        <p style="color:var(--ink-2);max-width:500px;margin:0 auto 24px;line-height:1.6;">
+          This administration center contains direct SQLite database diagnostics, user multi-tenancy records, and audit credentials. Only authenticated platform administrators may enter.
+        </p>
+        <div style="display:flex;gap:12px;justify-content:center;">
+          <a href="/dashboard" class="btn btn-primary">Return to Dashboard</a>
+          <button onclick="logout()" class="btn btn-ghost">Sign in with Admin Account</button>
+        </div>
+      </div>
+
+      <!-- Authorized Admin View -->
+      <div id="admin_authorized_view" style="display:none;">
+
+        <!-- Header -->
+        <div class="dashboard-header" style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <h1 style="margin:0;">Database &amp; Platform Operations</h1>
+                <span class="status-badge status-running" style="font-size:0.75rem;">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#34d399;animation:pulse 2s infinite;"></span>
+                  Database Active
+                </span>
+              </div>
+              <p style="margin-top:6px;">
+                Direct visibility into all multi-tenant users, deployment attempts, container modes, encrypted AWS vaults, and SQLite engine storage.
+              </p>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;background:var(--bg-surface);border:1px solid var(--border);padding:8px 14px;border-radius:var(--radius);font-size:0.83rem;">
+              <div style="font-size:1.2rem;">👤</div>
+              <div>
+                <div style="font-weight:700;color:var(--ink);" id="admin_email_badge">vanshg247776@gmail.com</div>
+                <div style="font-size:0.72rem;color:#fca5a5;font-weight:600;letter-spacing:0.04em;">SUPER ADMINISTRATOR</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5 KPI Stat Cards Row -->
+        <div class="admin-kpi-grid">
+          <!-- KPI 1: Total Users -->
+          <div class="admin-kpi-card" style="--kpi-color: #8b5cf6; --kpi-bg: rgba(139, 92, 246, 0.15); --kpi-border: rgba(139, 92, 246, 0.3);">
+            <div class="kpi-header">
+              <span class="kpi-title">Signed Up Users</span>
+              <div class="kpi-icon">👥</div>
+            </div>
+            <div class="kpi-val" id="kpi_users_count">-</div>
+            <div class="kpi-sub" id="kpi_users_sub">
+              <span>Checking registrations…</span>
+            </div>
+          </div>
+
+          <!-- KPI 2: Total Deployments Attempted -->
+          <div class="admin-kpi-card" style="--kpi-color: #06b6d4; --kpi-bg: rgba(6, 182, 212, 0.15); --kpi-border: rgba(6, 182, 212, 0.3);">
+            <div class="kpi-header">
+              <span class="kpi-title">Deploy Attempts</span>
+              <div class="kpi-icon">⚡</div>
+            </div>
+            <div class="kpi-val" id="kpi_attempts_count">-</div>
+            <div class="kpi-sub" id="kpi_attempts_sub">
+              <span>Tracking build requests…</span>
+            </div>
+          </div>
+
+          <!-- KPI 3: Active EC2 Instances -->
+          <div class="admin-kpi-card" style="--kpi-color: #10b981; --kpi-bg: rgba(16, 185, 129, 0.15); --kpi-border: rgba(16, 185, 129, 0.3);">
+            <div class="kpi-header">
+              <span class="kpi-title">Running EC2 Servers</span>
+              <div class="kpi-icon">🚀</div>
+            </div>
+            <div class="kpi-val" id="kpi_running_count">-</div>
+            <div class="kpi-sub" id="kpi_running_sub">
+              <span>Port 80 direct endpoints</span>
+            </div>
+          </div>
+
+          <!-- KPI 4: Users with Vault Configured -->
+          <div class="admin-kpi-card" style="--kpi-color: #f59e0b; --kpi-bg: rgba(245, 158, 11, 0.15); --kpi-border: rgba(245, 158, 11, 0.3);">
+            <div class="kpi-header">
+              <span class="kpi-title">Configured Vaults</span>
+              <div class="kpi-icon">🔐</div>
+            </div>
+            <div class="kpi-val" id="kpi_vault_count">-</div>
+            <div class="kpi-sub" id="kpi_vault_sub">
+              <span>AES-256 Fernet encrypted</span>
+            </div>
+          </div>
+
+          <!-- KPI 5: Database Health & Size -->
+          <div class="admin-kpi-card" style="--kpi-color: #ec4899; --kpi-bg: rgba(236, 72, 153, 0.15); --kpi-border: rgba(236, 72, 153, 0.3);">
+            <div class="kpi-header">
+              <span class="kpi-title">SQLite Database</span>
+              <div class="kpi-icon">💾</div>
+            </div>
+            <div class="kpi-val" id="kpi_db_size">-</div>
+            <div class="kpi-sub" id="kpi_db_sub">
+              <span>WAL Mode &middot; High integrity</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="admin-tabs">
+          <button class="admin-tab-btn active" onclick="switchAdminTab('overview', this)">
+            <span>📊</span> Analytics Overview
+          </button>
+          <button class="admin-tab-btn" onclick="switchAdminTab('users', this)">
+            <span>👥</span> Registered Users <span class="tab-count" id="tab_count_users">0</span>
+          </button>
+          <button class="admin-tab-btn" onclick="switchAdminTab('deployments', this)">
+            <span>🌐</span> All Deployments <span class="tab-count" id="tab_count_apps">0</span>
+          </button>
+          <button class="admin-tab-btn" onclick="switchAdminTab('activity', this)">
+            <span>📋</span> Attempts &amp; Audit Trail <span class="tab-count" id="tab_count_activity">0</span>
+          </button>
+          <button class="admin-tab-btn" onclick="switchAdminTab('database', this)">
+            <span>🗄️</span> SQLite Explorer
+          </button>
+        </div>
+
+        <!-- TAB 1: Analytics Overview -->
+        <div id="tab_content_overview" class="admin-tab-panel">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:20px;margin-bottom:24px;">
+
+            <!-- Container Type Distribution (Auto DF Python vs Node.js vs Custom) -->
+            <div class="admin-table-container" style="padding:22px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div style="font-weight:700;font-size:1.05rem;color:var(--ink);">Container Runtime Engine Breakdown</div>
+                <span class="status-badge" style="background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,92,246,0.3);">Auto DF Active</span>
+              </div>
+              <p style="font-size:0.82rem;color:var(--ink-2);margin-bottom:20px;">
+                AutoDevOps automatically selects or generates Dockerfiles for repositories with zero configuration.
+              </p>
+
+              <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.83rem;font-weight:600;margin-bottom:4px;">
+                  <span>🐍 Python (Auto DF)</span>
+                  <span id="overview_cnt_python">0</span>
+                </div>
+                <div class="bar-wrap">
+                  <div id="overview_bar_python" class="bar-fill" style="width:0%;background:linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
+                </div>
+              </div>
+
+              <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.83rem;font-weight:600;margin-bottom:4px;">
+                  <span>🟢 Node.js (Auto DF)</span>
+                  <span id="overview_cnt_nodejs">0</span>
+                </div>
+                <div class="bar-wrap">
+                  <div id="overview_bar_nodejs" class="bar-fill" style="width:0%;background:linear-gradient(90deg, #10b981, #34d399);"></div>
+                </div>
+              </div>
+
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.83rem;font-weight:600;margin-bottom:4px;">
+                  <span>⚙️ Custom Dockerfile (Manual)</span>
+                  <span id="overview_cnt_custom">0</span>
+                </div>
+                <div class="bar-wrap">
+                  <div id="overview_bar_custom" class="bar-fill" style="width:0%;background:linear-gradient(90deg, #f59e0b, #fbbf24);"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Deployment Status Distribution -->
+            <div class="admin-table-container" style="padding:22px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div style="font-weight:700;font-size:1.05rem;color:var(--ink);">Deployment Lifecycle Health</div>
+                <span class="status-badge status-running">Live Telemetry</span>
+              </div>
+              <p style="font-size:0.82rem;color:var(--ink-2);margin-bottom:20px;">
+                Ratio of currently provisioned EC2 instances versus cleaned-up / terminated VMs.
+              </p>
+
+              <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.83rem;font-weight:600;margin-bottom:4px;">
+                  <span>🟢 Active / Running on EC2</span>
+                  <span id="overview_cnt_running">0</span>
+                </div>
+                <div class="bar-wrap">
+                  <div id="overview_bar_running" class="bar-fill" style="width:0%;background:linear-gradient(90deg, #10b981, #34d399);"></div>
+                </div>
+              </div>
+
+              <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.83rem;font-weight:600;margin-bottom:4px;">
+                  <span>⚪ Terminated &amp; Shredded</span>
+                  <span id="overview_cnt_deleted">0</span>
+                </div>
+                <div class="bar-wrap">
+                  <div id="overview_bar_deleted" class="bar-fill" style="width:0%;background:linear-gradient(90deg, #64748b, #94a3b8);"></div>
+                </div>
+              </div>
+
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.83rem;font-weight:600;margin-bottom:4px;">
+                  <span>🔴 Failed Deploy Attempts</span>
+                  <span id="overview_cnt_failed">0</span>
+                </div>
+                <div class="bar-wrap">
+                  <div id="overview_bar_failed" class="bar-fill" style="width:0%;background:linear-gradient(90deg, #ef4444, #f87171);"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Database & Server Diagnostics Summary -->
+          <div class="admin-table-container" style="padding:22px;">
+            <div style="font-weight:700;font-size:1.05rem;color:var(--ink);margin-bottom:14px;">🗄️ SQLite Database Diagnostic Specs</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;font-size:0.84rem;">
+              <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+                <div style="color:var(--ink-3);font-size:0.75rem;text-transform:uppercase;">Storage File Location</div>
+                <div style="font-family:var(--font-mono);font-size:0.78rem;color:var(--ink);margin-top:4px;word-break:break-all;" id="diag_db_path">-</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+                <div style="color:var(--ink-3);font-size:0.75rem;text-transform:uppercase;">Journal &amp; Concurrency Mode</div>
+                <div style="font-family:var(--font-mono);font-size:0.82rem;color:#34d399;font-weight:700;margin-top:4px;" id="diag_journal_mode">-</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+                <div style="color:var(--ink-3);font-size:0.75rem;text-transform:uppercase;">Page Count &amp; Page Size</div>
+                <div style="font-family:var(--font-mono);font-size:0.82rem;color:var(--ink);margin-top:4px;" id="diag_pages">-</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+                <div style="color:var(--ink-3);font-size:0.75rem;text-transform:uppercase;">Vault Encryption Standard</div>
+                <div style="font-family:var(--font-mono);font-size:0.82rem;color:#c4b5fd;font-weight:700;margin-top:4px;">AES-256 Fernet (At-Rest)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Registered Users -->
+        <div id="tab_content_users" class="admin-tab-panel" style="display:none;">
+          <div class="admin-table-container">
+            <div class="admin-table-toolbar">
+              <input type="text" id="users_search" class="admin-search-input" placeholder="🔍 Search users by email or ID…" oninput="filterUsersTable()">
+              <div style="font-size:0.82rem;color:var(--ink-2);" id="users_table_count">Showing all registered users</div>
+            </div>
+            <div class="table-scroll">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>User / Account</th>
+                    <th>Role</th>
+                    <th>AWS Credentials Vault</th>
+                    <th>Applications</th>
+                    <th>Registered At</th>
+                    <th>User ID</th>
+                  </tr>
+                </thead>
+                <tbody id="users_table_body">
+                  <tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:30px;">Loading users…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: All Deployments -->
+        <div id="tab_content_deployments" class="admin-tab-panel" style="display:none;">
+          <div class="admin-table-container">
+            <div class="admin-table-toolbar">
+              <input type="text" id="apps_search" class="admin-search-input" placeholder="🔍 Search by repo, owner, or instance ID…" oninput="filterAppsTable()">
+              <select id="apps_status_filter" onchange="filterAppsTable()" class="admin-search-input" style="min-width:auto;">
+                <option value="ALL">All Statuses</option>
+                <option value="RUNNING">Running Only</option>
+                <option value="DELETED">Terminated Only</option>
+                <option value="REDEPLOYING">Redeploying</option>
+              </select>
+              <div style="font-size:0.82rem;color:var(--ink-2);" id="apps_table_count">Showing deployments</div>
+            </div>
+            <div class="table-scroll">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>App ID</th>
+                    <th>Account Owner</th>
+                    <th>GitHub Repository</th>
+                    <th>Container Type</th>
+                    <th>Live URL (Port 80)</th>
+                    <th>EC2 Instance ID</th>
+                    <th>Status</th>
+                    <th>Deployed At</th>
+                  </tr>
+                </thead>
+                <tbody id="apps_table_body">
+                  <tr><td colspan="8" style="text-align:center;color:var(--ink-3);padding:30px;">Loading deployments…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: Attempts & Audit Trail -->
+        <div id="tab_content_activity" class="admin-tab-panel" style="display:none;">
+          <div class="admin-table-container">
+            <div class="admin-table-toolbar">
+              <input type="text" id="activity_search" class="admin-search-input" placeholder="🔍 Search activity logs, errors, or users…" oninput="filterActivityTable()">
+              <select id="activity_status_filter" onchange="filterActivityTable()" class="admin-search-input" style="min-width:auto;">
+                <option value="ALL">All Events</option>
+                <option value="FAILED">Failures &amp; Errors Only</option>
+                <option value="SUCCESS">Success Only</option>
+                <option value="DEPLOY_ATTEMPT">Deploy Attempts</option>
+                <option value="USER_LOGIN">User Logins</option>
+              </select>
+              <div style="font-size:0.82rem;color:var(--ink-2);" id="activity_table_count">Showing activity trail</div>
+            </div>
+            <div class="table-scroll">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Event / Action</th>
+                    <th>Status</th>
+                    <th>User Account</th>
+                    <th>IP Address</th>
+                    <th>Event Details &amp; Error Messages</th>
+                  </tr>
+                </thead>
+                <tbody id="activity_table_body">
+                  <tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:30px;">Loading activity audit trail…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: SQLite Database Explorer -->
+        <div id="tab_content_database" class="admin-tab-panel" style="display:none;">
+          <div class="admin-table-container" style="padding:22px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+              <div>
+                <div style="font-weight:700;font-size:1.1rem;color:var(--ink);">SQLite Master Schema &amp; Storage</div>
+                <div style="font-size:0.82rem;color:var(--ink-2);margin-top:2px;">Real-time table inspect from database/db.sqlite3</div>
+              </div>
+              <span class="status-badge" style="background:rgba(255,255,255,0.08);color:var(--ink);">SQLite Engine</span>
+            </div>
+
+            <div id="db_tables_summary_cards" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:24px;">
+              <!-- Cards rendered dynamically -->
+            </div>
+
+            <div style="font-weight:700;font-size:0.95rem;color:var(--ink);margin-bottom:12px;">Detailed Table Column Schemas</div>
+            <div id="db_tables_schema_container" style="display:flex;flex-direction:column;gap:18px;">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- /admin_authorized_view -->
+
+    </div> <!-- /container-wide -->
+  </div> <!-- /page-wrapper -->
+
+  <!-- Client-side Logic Script -->
+  <script>
+    "use strict";
+
+    let _rawUsers = [];
+    let _rawApps = [];
+    let _rawActivity = [];
+    let _overviewData = null;
+    let _dbInspectData = null;
+    let _autoRefreshInterval = null;
+
+    // ── Authentication & Authorization Gate ────────────────────────
+    async function initAdminPage() {
+      const user = await requireAuth();
+      if (!user) return;
+
+      const isAdmin = Boolean(user.is_admin) || (user.email && user.email.toLowerCase() === "vanshg247776@gmail.com");
+
+      if (!isAdmin) {
+        document.getElementById("access_denied_view").style.display = "block";
+        document.getElementById("admin_authorized_view").style.display = "none";
+        return;
+      }
+
+      document.getElementById("access_denied_view").style.display = "none";
+      document.getElementById("admin_authorized_view").style.display = "block";
+      document.getElementById("admin_email_badge").textContent = user.email || "vanshg247776@gmail.com";
+
+      // Load all datasets
+      await fetchAllAdminData();
+
+      // Set initial auto refresh (30s default)
+      handleAutoRefreshChange(30);
+    }
+
+    // ── Auto Refresh Management ────────────────────────────────────
+    function handleAutoRefreshChange(seconds) {
+      if (_autoRefreshInterval) {
+        clearInterval(_autoRefreshInterval);
+        _autoRefreshInterval = null;
+      }
+      const s = parseInt(seconds, 10);
+      if (s > 0) {
+        _autoRefreshInterval = setInterval(() => {
+          fetchAllAdminData(true);
+        }, s * 1000);
+      }
+    }
+
+    // ── Data Fetching ──────────────────────────────────────────────
+    async function fetchAllAdminData(isBackground = false) {
+      const spinner = document.getElementById("refresh_spinner");
+      if (spinner) spinner.style.animation = "spin 0.8s linear infinite";
+
+      try {
+        const [overviewRes, usersRes, appsRes, activityRes, dbRes] = await Promise.all([
+          fetchWithAuth("/api/admin/overview"),
+          fetchWithAuth("/api/admin/users"),
+          fetchWithAuth("/api/admin/deployments"),
+          fetchWithAuth("/api/admin/activity?limit=250"),
+          fetchWithAuth("/api/admin/db-inspect")
+        ]);
+
+        if (overviewRes.ok) {
+          _overviewData = await overviewRes.json();
+          renderOverviewKPIs(_overviewData);
+        }
+
+        if (usersRes.ok) {
+          const uData = await usersRes.json();
+          _rawUsers = uData.users || [];
+          document.getElementById("tab_count_users").textContent = _rawUsers.length;
+          renderUsersTable(_rawUsers);
+        }
+
+        if (appsRes.ok) {
+          const aData = await appsRes.json();
+          _rawApps = aData.deployments || [];
+          document.getElementById("tab_count_apps").textContent = _rawApps.length;
+          renderAppsTable(_rawApps);
+        }
+
+        if (activityRes.ok) {
+          const actData = await activityRes.json();
+          _rawActivity = actData.activities || [];
+          document.getElementById("tab_count_activity").textContent = _rawActivity.length;
+          renderActivityTable(_rawActivity);
+        }
+
+        if (dbRes.ok) {
+          _dbInspectData = await dbRes.json();
+          renderDbExplorer(_dbInspectData);
+        }
+
+      } catch (err) {
+        console.error("Failed to load admin data:", err);
+      } finally {
+        if (spinner) spinner.style.animation = "";
+      }
+    }
+
+    // ── KPI & Analytics Overview Rendering ─────────────────────────
+    function renderOverviewKPIs(data) {
+      if (!data) return;
+
+      // 1. Users KPI
+      document.getElementById("kpi_users_count").textContent = data.total_users || 0;
+      const vaultPct = data.total_users > 0 ? Math.round(((data.users_with_vault || 0) / data.total_users) * 100) : 0;
+      document.getElementById("kpi_users_sub").innerHTML = `
+        <span style="color:var(--green);">✓ ${data.users_with_vault || 0} configured vault</span>
+        <span style="color:var(--ink-3);">(${vaultPct}%)</span>
+      `;
+
+      // 2. Attempts KPI
+      const attempts = data.deploy_attempts || {};
+      const totalAttempts = attempts.total || 0;
+      const successAttempts = attempts.success || 0;
+      const failedAttempts = attempts.failed || 0;
+      document.getElementById("kpi_attempts_count").textContent = totalAttempts;
+      document.getElementById("kpi_attempts_sub").innerHTML = `
+        <span style="color:var(--green);">✓ ${successAttempts} succeeded</span> &middot; 
+        <span style="color:var(--red);">✕ ${failedAttempts} failed</span>
+      `;
+
+      // 3. Running EC2 KPI
+      document.getElementById("kpi_running_count").textContent = data.running_instances || 0;
+      document.getElementById("kpi_running_sub").innerHTML = `
+        <span>Total deployed apps: <strong>${data.total_apps || 0}</strong></span>
+      `;
+
+      // 4. Vaults KPI
+      document.getElementById("kpi_vault_count").textContent = data.users_with_vault || 0;
+      document.getElementById("kpi_vault_sub").innerHTML = `
+        <span style="color:#c4b5fd;">100% AES-256 encrypted</span>
+      `;
+
+      // 5. Database KPI
+      const db = data.database || {};
+      document.getElementById("kpi_db_size").textContent = db.size_formatted || "0 KB";
+      document.getElementById("kpi_db_sub").innerHTML = `
+        <span>Mode: <strong>${escHtml(db.journal_mode || "WAL")}</strong> &middot; Pages: ${db.page_count || 0}</span>
+      `;
+
+      // Breakdown bars (Python vs Node.js vs Custom)
+      const types = data.app_types || {};
+      const pyCnt = types.python || 0;
+      const nodeCnt = types.nodejs || 0;
+      const customCnt = types.custom || 0;
+      const totalTypes = Math.max(1, pyCnt + nodeCnt + customCnt);
+
+      document.getElementById("overview_cnt_python").textContent = `${pyCnt} app(s) (${Math.round((pyCnt/totalTypes)*100)}%)`;
+      document.getElementById("overview_bar_python").style.width = `${(pyCnt/totalTypes)*100}%`;
+
+      document.getElementById("overview_cnt_nodejs").textContent = `${nodeCnt} app(s) (${Math.round((nodeCnt/totalTypes)*100)}%)`;
+      document.getElementById("overview_bar_nodejs").style.width = `${(nodeCnt/totalTypes)*100}%`;
+
+      document.getElementById("overview_cnt_custom").textContent = `${customCnt} app(s) (${Math.round((customCnt/totalTypes)*100)}%)`;
+      document.getElementById("overview_bar_custom").style.width = `${(customCnt/totalTypes)*100}%`;
+
+      // Lifecycle bars
+      const runningCnt = data.running_instances || 0;
+      const deletedCnt = data.deleted_instances || 0;
+      const totalLife = Math.max(1, data.total_apps || 1);
+
+      document.getElementById("overview_cnt_running").textContent = `${runningCnt} running`;
+      document.getElementById("overview_bar_running").style.width = `${(runningCnt/totalLife)*100}%`;
+
+      document.getElementById("overview_cnt_deleted").textContent = `${deletedCnt} deleted`;
+      document.getElementById("overview_bar_deleted").style.width = `${(deletedCnt/totalLife)*100}%`;
+
+      document.getElementById("overview_cnt_failed").textContent = `${failedAttempts} failed attempts`;
+      document.getElementById("overview_bar_failed").style.width = `${Math.min(100, (failedAttempts/Math.max(1, totalAttempts))*100)}%`;
+
+      // Diagnostic specs
+      document.getElementById("diag_db_path").textContent = db.path || "database/db.sqlite3";
+      document.getElementById("diag_journal_mode").textContent = `${db.journal_mode || "WAL"} (Write-Ahead Logging)`;
+      document.getElementById("diag_pages").textContent = `${db.page_count || 0} pages @ ${db.page_size || 4096} bytes`;
+    }
+
+    // ── Users Table Rendering ──────────────────────────────────────
+    function renderUsersTable(users) {
+      const tbody = document.getElementById("users_table_body");
+      if (!users || users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:30px;">No users found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = users.map(u => {
+        const isAdmin = Boolean(u.is_admin) || (u.email && u.email.toLowerCase() === "vanshg247776@gmail.com");
+        const roleBadge = isAdmin
+          ? `<span class="admin-badge">👑 Super Admin</span>`
+          : `<span class="status-badge" style="background:rgba(255,255,255,0.06);color:var(--ink-2);">👤 Member</span>`;
+
+        const vaultBadge = u.has_vault
+          ? `<span class="status-badge status-running">🔑 ${escHtml(u.masked_key || "Configured")}</span>`
+          : `<span class="status-badge" style="background:rgba(245,158,11,0.12);color:var(--amber);">⚠️ Not Set</span>`;
+
+        const appsInfo = `
+          <strong>${u.running_apps || 0}</strong> running / 
+          <span style="color:var(--ink-3);">${u.total_apps || 0} total</span>
+        `;
+
+        const dateStr = u.created_at ? new Date(u.created_at).toLocaleString() : "Unknown";
+
+        return `
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--purple),#06b6d4);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;">
+                  ${escHtml((u.email || "U")[0].toUpperCase())}
+                </div>
+                <div>
+                  <div style="font-weight:600;color:var(--ink);">${escHtml(u.email || "")}</div>
+                </div>
+              </div>
+            </td>
+            <td>${roleBadge}</td>
+            <td>${vaultBadge}</td>
+            <td>${appsInfo}</td>
+            <td style="color:var(--ink-2);font-size:0.8rem;">${escHtml(dateStr)}</td>
+            <td><span class="code-pill" title="${escHtml(u.id)}">${escHtml(u.id)}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function filterUsersTable() {
+      const q = (document.getElementById("users_search").value || "").toLowerCase().trim();
+      const filtered = _rawUsers.filter(u => {
+        return (u.email || "").toLowerCase().includes(q) || (u.id || "").toLowerCase().includes(q);
+      });
+      document.getElementById("users_table_count").textContent = `Showing ${filtered.length} of ${_rawUsers.length} users`;
+      renderUsersTable(filtered);
+    }
+
+    // ── Deployments Table Rendering ────────────────────────────────
+    function renderAppsTable(apps) {
+      const tbody = document.getElementById("apps_table_body");
+      if (!apps || apps.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--ink-3);padding:30px;">No deployments recorded yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = apps.map(a => {
+        let statusClass = "status-deleted";
+        const st = (a.status || "").toUpperCase();
+        if (st === "RUNNING") statusClass = "status-running";
+        else if (st === "REDEPLOYING") statusClass = "status-redeploying";
+        else if (st === "FAILED") statusClass = "status-failed";
+
+        const appType = (a.app_type || "python").toLowerCase();
+        let appTypeLabel = `<span class="code-pill">🐍 Python (Auto DF)</span>`;
+        if (appType === "nodejs") appTypeLabel = `<span class="code-pill" style="color:#34d399;">🟢 Node.js (Auto DF)</span>`;
+        else if (appType === "custom") appTypeLabel = `<span class="code-pill" style="color:#fbbf24;">⚙️ Custom DF</span>`;
+
+        const liveLink = (a.url && a.status === "RUNNING")
+          ? `<a href="${escHtml(a.url)}" target="_blank" rel="noopener" style="color:#38bdf8;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">${escHtml(a.url)} ↗</a>`
+          : (a.url ? `<span style="color:var(--ink-3);">${escHtml(a.url)}</span>` : `<span style="color:var(--ink-3);">-</span>`);
+
+        const repoLink = a.repo
+          ? `<a href="${escHtml(a.repo)}" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:underline;text-decoration-color:var(--border);">${escHtml(a.repo.replace('https://github.com/', ''))}</a>`
+          : `<span style="color:var(--ink-3);">-</span>`;
+
+        const dateStr = a.created_at ? new Date(a.created_at).toLocaleString() : "Unknown";
+
+        return `
+          <tr>
+            <td><strong style="color:var(--purple);">${escHtml(a.id || "")}</strong></td>
+            <td><span style="font-weight:500;color:var(--ink);">${escHtml(a.user_email || "system")}</span></td>
+            <td>${repoLink}</td>
+            <td>${appTypeLabel}</td>
+            <td>${liveLink}</td>
+            <td><span class="code-pill">${escHtml(a.instance_id || "-")}</span></td>
+            <td><span class="status-badge ${statusClass}">${escHtml(st)}</span></td>
+            <td style="color:var(--ink-2);font-size:0.8rem;">${escHtml(dateStr)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function filterAppsTable() {
+      const q = (document.getElementById("apps_search").value || "").toLowerCase().trim();
+      const statusFilter = document.getElementById("apps_status_filter").value;
+
+      const filtered = _rawApps.filter(a => {
+        const matchQ = (a.repo || "").toLowerCase().includes(q) ||
+                       (a.user_email || "").toLowerCase().includes(q) ||
+                       (a.instance_id || "").toLowerCase().includes(q) ||
+                       (a.id || "").toLowerCase().includes(q);
+        const matchStatus = (statusFilter === "ALL") || ((a.status || "").toUpperCase() === statusFilter);
+        return matchQ && matchStatus;
+      });
+
+      document.getElementById("apps_table_count").textContent = `Showing ${filtered.length} of ${_rawApps.length} deployments`;
+      renderAppsTable(filtered);
+    }
+
+    // ── Activity & Audit Trail Table Rendering ─────────────────────
+    function renderActivityTable(activities) {
+      const tbody = document.getElementById("activity_table_body");
+      if (!activities || activities.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:30px;">No audit events recorded yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = activities.map(act => {
+        let statusClass = "status-deleted";
+        const st = (act.status || "").toUpperCase();
+        if (st === "SUCCESS") statusClass = "status-running";
+        else if (st === "FAILED") statusClass = "status-failed";
+        else if (st === "PROGRESS" || st === "IN_PROGRESS") statusClass = "status-progress";
+
+        let actionIcon = "📋";
+        const action = act.action || "";
+        if (action.includes("DEPLOY")) actionIcon = "🚀";
+        else if (action.includes("LOGIN")) actionIcon = "🔑";
+        else if (action.includes("REGISTER")) actionIcon = "👤";
+        else if (action.includes("TERMINATE")) actionIcon = "🗑️";
+        else if (action.includes("VAULT")) actionIcon = "🛡️";
+
+        const dateStr = act.created_at ? new Date(act.created_at).toLocaleString() : "Unknown";
+
+        return `
+          <tr>
+            <td style="color:var(--ink-2);font-size:0.78rem;white-space:nowrap;">${escHtml(dateStr)}</td>
+            <td>
+              <span class="code-pill" style="font-weight:600;color:var(--ink);">
+                ${actionIcon} ${escHtml(action)}
+              </span>
+            </td>
+            <td><span class="status-badge ${statusClass}">${escHtml(st)}</span></td>
+            <td>
+              <span style="font-weight:500;color:var(--ink);">${escHtml(act.user_email || "-")}</span>
+            </td>
+            <td><span class="code-pill">${escHtml(act.ip_address || "internal")}</span></td>
+            <td style="font-size:0.83rem;color:var(--ink-2);max-width:320px;word-break:break-word;">
+              ${escHtml(act.details || "-")}
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function filterActivityTable() {
+      const q = (document.getElementById("activity_search").value || "").toLowerCase().trim();
+      const statusFilter = document.getElementById("activity_status_filter").value;
+
+      const filtered = _rawActivity.filter(act => {
+        const matchQ = (act.details || "").toLowerCase().includes(q) ||
+                       (act.user_email || "").toLowerCase().includes(q) ||
+                       (act.action || "").toLowerCase().includes(q);
+
+        let matchFilter = true;
+        if (statusFilter === "FAILED") matchFilter = (act.status || "").toUpperCase() === "FAILED";
+        else if (statusFilter === "SUCCESS") matchFilter = (act.status || "").toUpperCase() === "SUCCESS";
+        else if (statusFilter === "DEPLOY_ATTEMPT") matchFilter = (act.action || "").includes("DEPLOY");
+        else if (statusFilter === "USER_LOGIN") matchFilter = (act.action || "").includes("LOGIN");
+
+        return matchQ && matchFilter;
+      });
+
+      document.getElementById("activity_table_count").textContent = `Showing ${filtered.length} of ${_rawActivity.length} events`;
+      renderActivityTable(filtered);
+    }
+
+    // ── SQLite Database Explorer Rendering ─────────────────────────
+    function renderDbExplorer(data) {
+      if (!data) return;
+
+      const cardsContainer = document.getElementById("db_tables_summary_cards");
+      const tables = data.tables || [];
+
+      cardsContainer.innerHTML = tables.map(t => `
+        <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-weight:700;color:var(--purple);font-family:var(--font-mono);font-size:0.95rem;">
+              table: ${escHtml(t.name)}
+            </div>
+            <span class="status-badge status-running" style="font-size:0.7rem;">${t.columns.length} cols</span>
+          </div>
+          <div style="font-size:1.6rem;font-weight:800;color:var(--ink);">${t.row_count}</div>
+          <div style="font-size:0.75rem;color:var(--ink-3);margin-top:2px;">total records stored</div>
+        </div>
+      `).join("");
+
+      const schemaContainer = document.getElementById("db_tables_schema_container");
+      schemaContainer.innerHTML = tables.map(t => `
+        <div style="border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.015);overflow:hidden;">
+          <div style="padding:10px 16px;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+            <strong style="font-family:var(--font-mono);font-size:0.88rem;color:var(--ink);">Table: ${escHtml(t.name)} (${t.row_count} rows)</strong>
+            <span style="font-size:0.74rem;color:var(--ink-3);">SQLite Version: ${escHtml(data.sqlite_version || "3.x")}</span>
+          </div>
+          <div style="padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px;">
+            ${t.columns.map(c => `
+              <div style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-surface);border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:0.78rem;">
+                ${c.pk ? '<span style="color:#fbbf24;font-size:0.75rem;" title="Primary Key">🔑</span>' : ''}
+                <strong style="color:var(--ink);">${escHtml(c.name)}</strong>
+                <span style="color:var(--ink-3);font-family:var(--font-mono);font-size:0.72rem;">${escHtml(c.type || "ANY")}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // ── Tab Switching ──────────────────────────────────────────────
+    function switchAdminTab(tabName, clickedBtn) {
+      document.querySelectorAll(".admin-tab-btn").forEach(btn => btn.classList.remove("active"));
+      clickedBtn.classList.add("active");
+
+      document.querySelectorAll(".admin-tab-panel").forEach(panel => panel.style.display = "none");
+      const targetPanel = document.getElementById(`tab_content_${tabName}`);
+      if (targetPanel) {
+        targetPanel.style.display = "block";
+      }
+    }
+
+    // ── Start on DOM Ready ─────────────────────────────────────────
+    document.addEventListener("DOMContentLoaded", initAdminPage);
+  </script>
+</body>
+</html>

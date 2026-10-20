@@ -155,8 +155,16 @@ function renderNavbarAuth() {
     userWrap.style.cssText = "display:flex;align-items:center;gap:10px;";
 
     const emailPrefix = user.email ? user.email.split("@")[0] : "User";
+    const isAdmin = Boolean(user.is_admin) || (user.email && user.email.toLowerCase() === "vanshg247776@gmail.com");
+    const adminLinkHtml = isAdmin ? `
+      <a href="/admin" class="btn btn-sm nav-admin-btn" id="nav_admin_btn" style="background:linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(139, 92, 246, 0.35));border:1px solid rgba(239, 68, 68, 0.5);color:#fca5a5;font-weight:600;display:inline-flex;align-items:center;gap:6px;text-decoration:none;padding:5px 11px;border-radius:8px;" title="Super-Admin Console & Database Inspector">
+        <span>👑</span>
+        <span>Admin Panel</span>
+      </a>
+    ` : "";
 
     userWrap.innerHTML = `
+      ${adminLinkHtml}
       <button type="button" class="btn btn-ghost btn-sm nav-vault-btn" id="nav_vault_btn" onclick="openVaultModal()" title="Manage encrypted AWS credentials">
         <span class="vault-icon">🔑</span>
         <span class="vault-label">AWS Vault</span>
