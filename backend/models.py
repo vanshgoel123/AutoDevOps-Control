@@ -546,7 +546,7 @@ def get_admin_overview() -> Dict[str, Any]:
         "database": {
             "path": str(DB_PATH),
             "size_bytes": db_size_bytes,
-            "size_formatted": f"{db_size_bytes / 1024:.1f} KB" if db_size_bytes < 1048576 else f"{db_size_bytes / (1024*1024):.2f} MB",
+            "size_formatted": f"{db_size_bytes / 1024:.1f} KB" if db_size_bytes < 1048576 else f"{db_size_bytes / (1024 * 1024):.2f} MB",
             "page_count": page_count,
             "page_size": page_size,
             "journal_mode": str(journal_mode).upper() if journal_mode else "WAL"
@@ -647,6 +647,6 @@ def get_database_diagnostics() -> Dict[str, Any]:
         "sqlite_version": sqlite_ver,
         "db_path": str(DB_PATH),
         "db_size_bytes": db_size,
-        "db_size_formatted": f"{db_size / 1024:.1f} KB" if db_size < 1048576 else f"{db_size / (1024*1024):.2f} MB",
+        "db_size_formatted": f"{db_size / 1024:.1f} KB" if db_size < 1048576 else f"{db_size / (1024 * 1024):.2f} MB",
         "tables": table_stats
     }

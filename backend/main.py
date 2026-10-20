@@ -393,7 +393,6 @@ def delete_credentials(current_user: Dict[str, Any] = Depends(auth.get_current_u
     return {"message": "Saved credentials removed from vault."}
 
 
-
 # ── Deployment & Multi-Tenant Management Endpoints ────────────────────────────
 
 @app.post("/deploy")
@@ -748,4 +747,3 @@ def admin_activity(
 def admin_db_inspect(current_admin: Dict[str, Any] = Depends(auth.get_current_admin)):
     """Return raw SQLite database diagnostic metrics and table counts."""
     return models.get_database_diagnostics()
-
