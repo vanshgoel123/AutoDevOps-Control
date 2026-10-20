@@ -205,11 +205,12 @@
         countLabel.innerHTML = `<span class="dashboard-count-num">${apps.length}</span> total &nbsp;·&nbsp; <span class="dashboard-count-num" style="color:var(--green);">${running}</span> running`;
 
         grid.innerHTML = apps.map((app, i) => {
-          const [appId, repo, url, status, instanceId] = app;
+          const [appId, repo, url, status, instanceId, createdAt, appType] = app;
           const isDeleted  = String(status || "").toUpperCase() === "DELETED";
           const canTerminate = instanceId && String(instanceId).startsWith("i-") && !isDeleted;
           const statusClass = isDeleted ? "status-deleted" : "status-running";
           const statusLabel = String(status || "UNKNOWN").toUpperCase();
+          const runtimeName = String(appType || "python").toUpperCase();
 
           const urlSection = url
             ? `<div class="app-card-url">
@@ -226,7 +227,10 @@
             <div class="app-card-top">
               <div class="app-card-info">
                 <div class="app-card-repo">${escHtml(repo)}</div>
-                <div class="app-card-id">${escHtml(appId)}</div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                  <span class="app-card-id">${escHtml(appId)}</span>
+                  <span class="badge badge-purple" style="font-size:0.68rem;padding:1px 6px;letter-spacing:0.03em;">${escHtml(runtimeName)}</span>
+                </div>
               </div>
               <span class="status-badge ${statusClass}">
                 <span class="status-badge-dot"></span>
@@ -273,6 +277,7 @@
             </div>` : ""}
             <div class="app-card-footer">
               ${url ? `<a class="btn btn-ghost btn-sm" href="${url}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}
+              ${!isDeleted ? `<button class="btn btn-ghost btn-sm" onclick="downloadSSHKey('${escHtml(appId)}')" title="Download EC2 SSH private key (.pem) to laptop">🔑 SSH Key</button>` : ""}
               <button class="btn btn-ghost btn-sm" onclick="showWebhookModal('${escHtml(appId)}', '${escHtml(repo)}')" title="GitHub Auto-Deploy Webhook">⚡ Webhook</button>
               <button
                 class="btn btn-danger btn-sm"

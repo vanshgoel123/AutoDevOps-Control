@@ -285,9 +285,10 @@ async function deploy() {
     return;
   }
 
-  if (!repo.startsWith("https://github.com/")) {
-    setStatus("Only public GitHub repositories are supported.", "error");
-    showToast("URL must start with https://github.com/", "error");
+  const repoRegex = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?\/?$/;
+  if (!repoRegex.test(repo)) {
+    setStatus("Invalid GitHub repository format (use https://github.com/owner/repo).", "error");
+    showToast("Please enter a valid GitHub repository URL: https://github.com/owner/repo", "error");
     document.getElementById("repo")?.focus();
     return;
   }
@@ -516,6 +517,22 @@ function startPolling(taskId) {
           cardHtml += `<div class="result-meta" style="color:var(--ink-3);margin-top:10px;">Check the Dashboard to see your live instance.</div>`;
         }
 
+        if (result.app_id) {
+          const rawIp = liveUrl ? liveUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "YOUR_EC2_IP";
+          cardHtml += `
+            <div style="margin-top:16px;padding:14px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);border-radius:10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:1.1rem;">🔑</span>
+                  <span style="font-weight:700;font-size:0.85rem;color:var(--ink);">SSH Key &amp; Direct Server Access</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="downloadSSHKey('${escHtml(result.app_id)}')">⬇ Download key-${escHtml(result.app_id)}.pem</button>
+              </div>
+              <div style="font-size:0.75rem;color:var(--ink-2);margin-bottom:6px;">To SSH into this EC2 instance from your laptop terminal:</div>
+              <code style="display:block;background:rgba(0,0,0,0.35);padding:8px 12px;border-radius:6px;font-family:monospace;font-size:0.78rem;color:var(--purple);word-break:break-all;">chmod 400 key-${escHtml(result.app_id)}.pem &amp;&amp; ssh -i key-${escHtml(result.app_id)}.pem ubuntu@${escHtml(rawIp)}</code>
+            </div>`;
+        }
+
         showResultCard(cardHtml);
       }
 
@@ -710,6 +727,17 @@ function openIamGuideModal(event) {
 function closeIamGuideModal() {
   const modal = document.getElementById("adops_iam_modal");
   if (modal) modal.style.display = "none";
+}
+
+function downloadCredentials() {
+  const card = document.getElementById("result_card");
+  const codeEl = card ? card.querySelector("code") : null;
+  const appId = codeEl ? codeEl.textContent.trim() : "";
+  if (appId && typeof downloadSSHKey === "function") {
+    downloadSSHKey(appId);
+  } else {
+    showToast("SSH keys are available on deployment completion or in Dashboard.", "info");
+  }
 }
 
 // ── Initial Setup on Page Load ─────────────────────────────────────

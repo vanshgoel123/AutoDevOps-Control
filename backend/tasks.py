@@ -75,6 +75,13 @@ def deploy_app(self, repo_url, aws_key, aws_secret, app_type, custom_dockerfile,
         if not is_valid:
             return {"error": validation_msg}
 
+        if not repo_url or not repo_url.strip().startswith("https://github.com/"):
+            return {"error": "Invalid GitHub repository URL. Must be https://github.com/owner/repo"}
+
+        import re
+        if not re.match(r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?/?$", repo_url.strip()):
+            return {"error": "Invalid GitHub repository URL format"}
+
         app_id = str(uuid.uuid4())[:6]
         print(f"[DEPLOY {app_id}] Starting: repo={repo_url} app_type={app_type}")
 
@@ -145,11 +152,14 @@ def deploy_app(self, repo_url, aws_key, aws_secret, app_type, custom_dockerfile,
 
         remote_cmd = f"""
 set -e
+sudo rm -rf /home/ubuntu/app
 git clone {repo_url} /home/ubuntu/app
 cd /home/ubuntu/app
 echo "{df_b64}" | base64 -d > Dockerfile
 sudo docker build -t adops_app .
-sudo docker run -d -p 80:80 {env_file_flag} --restart unless-stopped adops_app
+sudo docker stop adops_running 2>/dev/null || true
+sudo docker rm adops_running 2>/dev/null || true
+sudo docker run -d --name adops_running -p 80:80 {env_file_flag} --restart unless-stopped adops_app
 """.strip()
 
         if has_env:
@@ -161,7 +171,24 @@ sudo docker run -d -p 80:80 {env_file_flag} --restart unless-stopped adops_app
 
         # ── Save + return result ───────────────────────────────────────────
         url = f"http://{ip}"
-        save_app(app_id, repo_url, url, instance_id, user_id=user_id)
+        ssh_pem = None
+        if key_path and os.path.exists(key_path):
+            try:
+                with open(key_path, "r") as f:
+                    ssh_pem = f.read()
+            except Exception:
+                pass
+
+        save_app(
+            app_id,
+            repo_url,
+            url,
+            instance_id,
+            user_id=user_id,
+            app_type=app_type,
+            custom_dockerfile=custom_dockerfile,
+            ssh_key=ssh_pem
+        )
         print(f"[DEPLOY {app_id}] Done: url={url}")
 
         return {

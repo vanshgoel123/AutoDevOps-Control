@@ -25,6 +25,7 @@ from cleanup import delete_instance
 import models
 
 _local_tasks: Dict[str, Dict[str, Any]] = {}
+GITHUB_REPO_REGEX = re.compile(r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?/?$")
 
 
 def run_in_background(task_id: str, repo_url: str, aws_key: str, aws_secret: str, app_type: str, custom_dockerfile: Optional[str], env_vars: Optional[str], user_id: str):
@@ -40,6 +41,14 @@ def run_in_background(task_id: str, repo_url: str, aws_key: str, aws_secret: str
         "meta": {"step": f"Task accepted. Validating AWS credentials and repository: {repo_url}..."}
     }
     time.sleep(0.5)
+
+    if not GITHUB_REPO_REGEX.match(repo_url.strip()):
+        _local_tasks[task_id] = {
+            "state": "SUCCESS",
+            "result": {"error": "Invalid GitHub repository URL."},
+            "meta": {"step": "Deployment stopped: Invalid GitHub repository URL."}
+        }
+        return
 
     try:
         import aws
@@ -93,7 +102,23 @@ shred -u /tmp/.adops.env 2>/dev/null || true
         time.sleep(0.5)
 
         url = f"http://{ip}"
-        models.save_app(app_id, repo_url, url, instance_id, user_id=user_id)
+        ssh_pem = None
+        if key_path and Path(key_path).exists():
+            try:
+                ssh_pem = Path(key_path).read_text()
+            except Exception:
+                pass
+
+        models.save_app(
+            app_id,
+            repo_url,
+            url,
+            instance_id,
+            user_id=user_id,
+            app_type=app_type,
+            custom_dockerfile=custom_dockerfile,
+            ssh_key=ssh_pem
+        )
 
         _local_tasks[task_id] = {
             "state": "SUCCESS",
@@ -281,6 +306,13 @@ def deploy(
     current_user: Dict[str, Any] = Depends(auth.get_current_user)
 ):
     # Determine effective AWS credentials
+    clean_repo = (payload.repo_url or "").strip()
+    if not GITHUB_REPO_REGEX.match(clean_repo):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid GitHub repository URL. Must be a public repository URL matching 'https://github.com/owner/repository'."
+        )
+
     effective_aws_key = (payload.aws_key or "").strip()
     effective_aws_secret = (payload.aws_secret or "").strip()
 
@@ -353,10 +385,15 @@ def status_endpoint(task_id: str):
     if AsyncResult and celery_app:
         try:
             res = AsyncResult(task_id, app=celery_app)
+            raw_result = res.result
+            if isinstance(raw_result, Exception):
+                result_payload = {"error": str(raw_result)}
+            else:
+                result_payload = raw_result
             return {
                 "state": res.state,
-                "result": res.result,
-                "meta": res.info,
+                "result": result_payload,
+                "meta": res.info if not isinstance(res.info, Exception) else str(res.info),
             }
         except Exception:
             pass
@@ -401,6 +438,17 @@ def delete(
             aws_key = vault_creds["aws_key"]
             aws_secret = vault_creds["aws_secret"]
 
+    if not aws_key or not aws_secret:
+        from config import AWS_ACCESS_KEY, AWS_SECRET_KEY
+        if AWS_ACCESS_KEY and AWS_SECRET_KEY:
+            aws_key = AWS_ACCESS_KEY
+            aws_secret = AWS_SECRET_KEY
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="AWS credentials required to terminate instance. Please enter your keys or configure your vault."
+            )
+
     try:
         delete_instance(instance_id, aws_key=aws_key or None, aws_secret=aws_secret or None)
     except Exception as e:
@@ -442,6 +490,48 @@ def get_metrics_endpoint(
     return metrics
 
 
+# ── SSH Private Key Download Endpoint ─────────────────────────────────────────
+
+@app.get("/api/apps/{app_id}/ssh-key")
+def download_ssh_key_endpoint(
+    app_id: str,
+    current_user: Dict[str, Any] = Depends(auth.get_current_user)
+):
+    """
+    Download the AWS EC2 SSH private key (.pem) to the user's laptop.
+    Protected by user authentication and multi-tenant IDOR check.
+    """
+    app_record = models.get_app_by_id(app_id)
+    if not app_record:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    if app_record.get("user_id") != current_user["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not own this application."
+        )
+
+    pem_content = models.get_app_ssh_key(app_id, current_user["id"])
+    if not pem_content:
+        local_pem = Path(f"key-{app_id}.pem")
+        if local_pem.exists():
+            pem_content = local_pem.read_text()
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="SSH private key not found or expired for this instance."
+            )
+
+    from fastapi.responses import Response
+    return Response(
+        content=pem_content,
+        media_type="application/x-pem-file",
+        headers={
+            "Content-Disposition": f'attachment; filename="key-{app_id}.pem"',
+            "Content-Type": "application/x-pem-file"
+        }
+    )
+
+
 # ── Git Push Webhook Auto-Deploy Endpoint ──────────────────────────────────────
 
 @app.post("/api/webhooks/github/{app_id}")
@@ -471,6 +561,9 @@ async def github_webhook(app_id: str, request: Request):
     aws_key = vault_creds["aws_key"] if vault_creds else None
     aws_secret = vault_creds["aws_secret"] if vault_creds else None
 
+    app_type = app_record.get("app_type") or "python"
+    custom_df = app_record.get("custom_dockerfile")
+
     celery_active = False
     if deploy_app and celery_app:
         try:
@@ -485,8 +578,8 @@ async def github_webhook(app_id: str, request: Request):
             app_record["repo"],
             aws_key,
             aws_secret,
-            "python",
-            None,
+            app_type,
+            custom_df,
             None,
             user_id
         )
@@ -495,7 +588,7 @@ async def github_webhook(app_id: str, request: Request):
         task_id = f"auto-redeploy-{app_id}"
         thread = threading.Thread(
             target=run_in_background,
-            args=(task_id, app_record["repo"], aws_key or "", aws_secret or "", "python", None, None, user_id),
+            args=(task_id, app_record["repo"], aws_key or "", aws_secret or "", app_type, custom_df, None, user_id),
             daemon=True
         )
         thread.start()

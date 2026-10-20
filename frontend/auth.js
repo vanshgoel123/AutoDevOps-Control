@@ -319,3 +319,35 @@ function escHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+// ── SSH Private Key Downloader ───────────────────────────────────
+async function downloadSSHKey(appId) {
+  if (!appId) return;
+  try {
+    const res = await fetchWithAuth(`/api/apps/${encodeURIComponent(appId)}/ssh-key`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (typeof showToast === "function") {
+        showToast(err.detail || "Could not download SSH key.", "error");
+      }
+      return;
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `key-${appId}.pem`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    if (typeof showToast === "function") {
+      showToast(`key-${appId}.pem downloaded! (chmod 400 key-${appId}.pem)`, "success");
+    }
+  } catch (err) {
+    if (typeof showToast === "function") {
+      showToast("Download failed: " + err.message, "error");
+    }
+  }
+}
+

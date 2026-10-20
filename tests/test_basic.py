@@ -113,4 +113,3 @@ class TestDeployValidation:
         valid, msg = aws.validate_aws_credentials("", "")
         assert valid is False
         assert "No AWS credentials" in msg
-

@@ -8,6 +8,8 @@ from config import REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
 
 
 def full_cleanup(instance_id, key_name, sg_id, key_path, aws_key, aws_secret):
+    if boto3 is None:
+        return
     key = aws_key or AWS_ACCESS_KEY
     secret = aws_secret or AWS_SECRET_KEY
 
@@ -78,10 +80,17 @@ def delete_instance(instance_id, aws_key=None, aws_secret=None):
             instance = reservations[0]["Instances"][0]
             key_name = instance.get("KeyName")
             sg_ids = [sg.get("GroupId") for sg in instance.get("SecurityGroups", []) if sg.get("GroupId")]
-    except Exception:
+    except Exception as exc:
+        if "NotFound" in str(exc) or "does not exist" in str(exc):
+            return True
         raise
 
-    ec2.terminate_instances(InstanceIds=[instance_id])
+    try:
+        ec2.terminate_instances(InstanceIds=[instance_id])
+    except Exception as exc:
+        if "NotFound" in str(exc) or "does not exist" in str(exc):
+            return True
+        raise
 
     try:
         waiter = ec2.get_waiter("instance_terminated")

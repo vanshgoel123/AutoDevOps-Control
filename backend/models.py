@@ -53,6 +53,9 @@ def init_db():
             url TEXT,
             status TEXT,
             instance_id TEXT,
+            app_type TEXT DEFAULT 'python',
+            custom_dockerfile TEXT,
+            encrypted_ssh_key TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -64,6 +67,12 @@ def init_db():
 
     if "user_id" not in existing_columns:
         cur.execute("ALTER TABLE apps ADD COLUMN user_id TEXT DEFAULT 'system';")
+    if "app_type" not in existing_columns:
+        cur.execute("ALTER TABLE apps ADD COLUMN app_type TEXT DEFAULT 'python';")
+    if "custom_dockerfile" not in existing_columns:
+        cur.execute("ALTER TABLE apps ADD COLUMN custom_dockerfile TEXT;")
+    if "encrypted_ssh_key" not in existing_columns:
+        cur.execute("ALTER TABLE apps ADD COLUMN encrypted_ssh_key TEXT;")
     if "created_at" not in existing_columns:
         cur.execute("ALTER TABLE apps ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
     if "updated_at" not in existing_columns:
@@ -212,38 +221,73 @@ def delete_user_credentials(user_id: str) -> bool:
 
 # ── App Management Operations (Multi-Tenant Scoped) ───────────────────────────
 
-def save_app(app_id: str, repo: str, url: str, instance_id: str, user_id: str = "system", status: str = "RUNNING"):
-    """Save newly provisioned app linked to user_id."""
+def save_app(
+    app_id: str,
+    repo: str,
+    url: str,
+    instance_id: str,
+    user_id: str = "system",
+    status: str = "RUNNING",
+    app_type: str = "python",
+    custom_dockerfile: Optional[str] = None,
+    ssh_key: Optional[str] = None
+):
+    """Save newly provisioned app linked to user_id, optionally encrypting SSH key."""
+    enc_ssh_key = crypto.encrypt_secret(ssh_key.strip()) if ssh_key and ssh_key.strip() else None
+
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO apps (id, user_id, repo, url, status, instance_id)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO apps (id, user_id, repo, url, status, instance_id, app_type, custom_dockerfile, encrypted_ssh_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             repo = excluded.repo,
             url = excluded.url,
             status = excluded.status,
             instance_id = excluded.instance_id,
+            app_type = excluded.app_type,
+            custom_dockerfile = excluded.custom_dockerfile,
+            encrypted_ssh_key = COALESCE(excluded.encrypted_ssh_key, apps.encrypted_ssh_key),
             updated_at = CURRENT_TIMESTAMP
         """,
-        (app_id, user_id, repo, url, status, instance_id)
+        (app_id, user_id, repo, url, status, instance_id, app_type, custom_dockerfile, enc_ssh_key)
     )
     conn.commit()
     conn.close()
+
+
+def get_app_ssh_key(app_id: str, user_id: str) -> Optional[str]:
+    """Retrieve and decrypt the SSH private key for an app owned by user_id."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT encrypted_ssh_key FROM apps WHERE id = ? AND user_id = ?",
+        (app_id, user_id)
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    if not row or not row["encrypted_ssh_key"]:
+        return None
+
+    try:
+        return crypto.decrypt_secret(row["encrypted_ssh_key"])
+    except Exception:
+        return None
 
 
 def get_apps_by_user(user_id: str) -> List[List[Any]]:
     """
     Retrieve apps belonging strictly to the specified user_id.
     Returns in list-of-tuples format matching frontend expectations:
-    [ [app_id, repo, url, status, instance_id, created_at], ... ]
+    [ [app_id, repo, url, status, instance_id, created_at, app_type], ... ]
     """
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT id, repo, url, status, instance_id, created_at
+        SELECT id, repo, url, status, instance_id, created_at, app_type
         FROM apps
         WHERE user_id = ?
         ORDER BY created_at DESC
@@ -254,7 +298,15 @@ def get_apps_by_user(user_id: str) -> List[List[Any]]:
     conn.close()
 
     return [
-        [row["id"], row["repo"], row["url"], row["status"], row["instance_id"], row["created_at"]]
+        [
+            row["id"],
+            row["repo"],
+            row["url"],
+            row["status"],
+            row["instance_id"],
+            row["created_at"],
+            row["app_type"] if "app_type" in row.keys() and row["app_type"] else "python"
+        ]
         for row in rows
     ]
 

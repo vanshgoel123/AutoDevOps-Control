@@ -30,9 +30,10 @@
     document.documentElement.setAttribute('data-theme', getStoredTheme());
     document.addEventListener('DOMContentLoaded', function() {
       applyTheme(getStoredTheme());
-      // If already logged in, redirect to dashboard
+      // If already logged in, redirect to dashboard unless session expired
+      const urlParams = new URLSearchParams(window.location.search);
       const token = getAuthToken();
-      if (token) {
+      if (token && !urlParams.get("expired")) {
         window.location.href = "/dashboard";
       }
     });
